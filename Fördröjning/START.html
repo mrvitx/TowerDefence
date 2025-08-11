@@ -24,50 +24,139 @@
     .small{color:var(--muted);font-size:12px}
     canvas{image-rendering:pixelated}
   </style>
-  <script type="module" defer>
-  import { MapSettings, Settings } from './src/constants.js';
-  import { saveSettingsDump, loadSettingsApply } from './src/persist.js';
-  import { buildPath, path as builtPath } from './src/path.js';
-  import { rebuildBackground } from './src/render.js';
-    const qs = s=>document.querySelector(s);
-    const mapPreset = qs('#mapPreset');
-    const difficulty = qs('#difficulty');
-    const endless = qs('#endless');
-    const buildMode = qs('#buildMode');
-  // preview canvas
-    const prev = document.getElementById('mapPrev');
-    const pctx = prev.getContext('2d');
-  // Accessibility toggles
-  const cbHC = document.getElementById('colorblind');
-  const cbRM = document.getElementById('reducedMotion');
+drawPreview();
+  <script src="src/maps.js"></script>
+  <script>
+    window.onload = function() {
+      function qs(s){ return document.querySelector(s); }
+      var mapPreset = qs('#mapPreset');
+      var difficulty = qs('#difficulty');
+      var endless = qs('#endless');
+      var buildMode = qs('#buildMode');
+      var prev = document.getElementById('mapPrev');
+      var pctx = prev.getContext('2d');
+      var cbHC = document.getElementById('colorblind');
+      var cbRM = document.getElementById('reducedMotion');
 
-    // Load existing settings to prefill
-    try{ loadSettingsApply(); }catch(e){}
-  mapPreset.value = MapSettings.preset;
-  if(mapPreset.value==='spiral'){ mapPreset.value='riverMeander'; }
-    difficulty.value = String(MapSettings.difficulty||1);
-    endless.checked = !!MapSettings.endless;
-    buildMode.value = Settings.buildMode||'paint';
+      // --- Helper: generate points for default maps if missing ---
+      function generateLegacyPoints(id, width, height) {
+        var TILE = 32;
+        var COLS = Math.max(3, Math.floor(width/TILE));
+        var ROWS = Math.max(3, Math.floor(height/TILE));
+        var cx = function(col){ return col*TILE+TILE/2; }, cy = function(row){ return row*TILE+TILE/2; };
+        var path = [];
+        if(id==='ring'){
+          for(var i=0;i<COLS;i++) path.push({x:cx(i),y:cy(1)});
+          for(var r=2;r<ROWS-2;r++) path.push({x:cx(COLS-1),y:cy(r)});
+          for(var i=COLS-1;i>=0;i--) path.push({x:cx(i),y:cy(ROWS-2)});
+        } else if(id==='maze'){
+          for(var i=1;i<COLS-1;i++) path.push({x:cx(i),y:cy(1)});
+          for(var r=2;r<ROWS-2;r++) path.push({x:cx(COLS-2),y:cy(r)});
+          for(var i=COLS-2;i>1;i--) path.push({x:cx(i),y:cy(ROWS-3)});
+          for(var r=ROWS-4;r>1;r--) path.push({x:cx(2),y:cy(r)});
+        }
+        return path;
+      }
 
-  function drawPreview(){
-      // very small fake canvas that mimics main path draw using the selected preset
-      const tmp = document.createElement('canvas'); tmp.width=prev.width; tmp.height=prev.height; const tctx=tmp.getContext('2d');
-      // patch MapSettings temporarily
-      const MS = MapSettings; const chosen = mapPreset.value; const keep = { preset:MS.preset, difficulty:MS.difficulty, endless:MS.endless };
-      MS.preset = chosen;
-      try{
-        // build points into global path using tmp size
-        buildPath(tmp);
-        // background draw uses its own offscreen but we can do a simplified stroke
+      // Populate map dropdown from localStorage, always include default maps
+      function populateMapDropdown() {
+        var maps = [];
+        // Always start with defaults, then merge in custom
+        var defaults = (window.Maps && window.Maps.DEFAULT_MAPS) ? window.Maps.DEFAULT_MAPS.map(function(m){ return Object.assign({}, m); }) : [];
+        // Generate points for defaults if missing
+        for(var i=0;i<defaults.length;i++){
+          if(!Array.isArray(defaults[i].points) || defaults[i].points.length < 2){
+            defaults[i].points = generateLegacyPoints(defaults[i].id, prev.width, prev.height);
+          }
+        }
+        // Load custom maps
+        var stored = (window.Maps && window.Maps.loadMaps) ? window.Maps.loadMaps() : [];
+        // Remove any default maps from stored (by id)
+        var customs = stored.filter(function(m){ return !defaults.some(function(d){ return d.id === m.id; }); });
+        maps = defaults.concat(customs);
+        mapPreset.innerHTML = '';
+        for (var i=0; i<maps.length; i++) {
+          var map = maps[i];
+          var opt = document.createElement('option');
+          opt.value = map.id;
+          opt.textContent = map.name + (map.type === 'default' ? '' : ' (egen)');
+          mapPreset.appendChild(opt);
+        }
+        // Set value to last used or first
+        var KEY = 'td-settings-v1';
+        var data = {};
+        try { data = JSON.parse(localStorage.getItem(KEY)||'{}')||{}; } catch(e){ data={}; }
+        var MapSettings = data.MapSettings || {};
+        var sel = MapSettings.preset || '';
+        if (!maps.some(function(m){ return m.id === sel; })) sel = maps[0] ? maps[0].id : '';
+        mapPreset.value = sel;
+      }
+      populateMapDropdown();
+
+      // Set other fields from localStorage if available
+      var KEY = 'td-settings-v1';
+      var data = {};
+      try { data = JSON.parse(localStorage.getItem(KEY)||'{}')||{}; } catch(e){ data={}; }
+      var MapSettings = data.MapSettings || {};
+      var Settings = data.Settings || {};
+      difficulty.value = String(MapSettings.difficulty||1);
+      endless.checked = !!MapSettings.endless;
+      buildMode.value = Settings.buildMode||'paint';
+
+      // --- Unified scaling: scale from new game space (1200x800, PAD=24) to preview canvas (480x300) ---
+      function scaleGameToPreview(pt) {
+        const GAME_W=1200, GAME_H=800, PAD=24;
+        const PREV_W=480, PREV_H=300, PPAD=12; // keep existing preview size/aspect
+        const srcW = GAME_W-2*PAD, srcH = GAME_H-2*PAD;
+        const dstW = PREV_W-2*PPAD, dstH = PREV_H-2*PPAD;
+        const scale = Math.min(dstW/srcW, dstH/srcH);
+        return {
+          x: ((pt.x-PAD)*scale)+PPAD,
+          y: ((pt.y-PAD)*scale)+PPAD
+        };
+      }
+      function drawPreview(){
+        // Use the same map list as dropdown
+        var maps = [];
+        var defaults = (window.Maps && window.Maps.DEFAULT_MAPS) ? window.Maps.DEFAULT_MAPS.map(function(m){ return Object.assign({}, m); }) : [];
+        for(var i=0;i<defaults.length;i++){
+          if(!Array.isArray(defaults[i].points) || defaults[i].points.length < 2){
+            defaults[i].points = generateLegacyPoints(defaults[i].id, prev.width, prev.height);
+          }
+        }
+        var stored = (window.Maps && window.Maps.loadMaps) ? window.Maps.loadMaps() : [];
+        var customs = stored.filter(function(m){ return !defaults.some(function(d){ return d.id === m.id; }); });
+        maps = defaults.concat(customs);
+        var map = maps.find(function(m){ return m.id === mapPreset.value; });
+        if (!map || !Array.isArray(map.points) || map.points.length < 2) {
+          pctx.clearRect(0,0,prev.width,prev.height);
+          return;
+        }
+        var tmp = document.createElement('canvas'); tmp.width=prev.width; tmp.height=prev.height; var tctx=tmp.getContext('2d');
         tctx.clearRect(0,0,tmp.width,tmp.height);
         tctx.fillStyle='#0b0b0c'; tctx.fillRect(0,0,tmp.width,tmp.height);
-        const path = builtPath;
+        var path = map.points;
         if(path.length>1){
-          const hc = !!cbHC?.checked;
-          tctx.strokeStyle=hc?'#3a3a3a':'#2a2a2a'; tctx.lineWidth=18; tctx.lineCap='round'; tctx.beginPath(); tctx.moveTo(path[0].x,path[0].y); for(const p of path){ tctx.lineTo(p.x,p.y); } tctx.stroke();
-          tctx.strokeStyle=hc?'rgba(255,255,255,0.12)':'rgba(255,255,255,0.08)'; tctx.lineWidth=10; tctx.beginPath(); tctx.moveTo(path[0].x,path[0].y); for(const p of path){ tctx.lineTo(p.x,p.y); } tctx.stroke();
+          var hc = !!cbHC?.checked;
+          // Draw path lines with scaling
+          tctx.strokeStyle=hc?'#3a3a3a':'#2a2a2a'; tctx.lineWidth=18; tctx.lineCap='round'; tctx.beginPath();
+          var p0 = scaleGameToPreview(path[0]);
+          tctx.moveTo(p0.x, p0.y);
+          for(var i=1;i<path.length;i++){
+            var p = scaleGameToPreview(path[i]);
+            tctx.lineTo(p.x, p.y);
+          }
+          tctx.stroke();
+          tctx.strokeStyle=hc?'rgba(255,255,255,0.12)':'rgba(255,255,255,0.08)'; tctx.lineWidth=10; tctx.beginPath();
+          p0 = scaleGameToPreview(path[0]);
+          tctx.moveTo(p0.x, p0.y);
+          for(var i=1;i<path.length;i++){
+            var p = scaleGameToPreview(path[i]);
+            tctx.lineTo(p.x, p.y);
+          }
+          tctx.stroke();
           // Start/Goal markers
-          const start=path[0], goal=path[path.length-1]; const r=12;
+          var start=scaleGameToPreview(path[0]), goal=scaleGameToPreview(path[path.length-1]), r=12;
           // Start
           tctx.beginPath(); tctx.arc(start.x,start.y,r,0,Math.PI*2); tctx.fillStyle=(cbHC?.checked?'#00c853':'#1e8e3e'); tctx.fill(); tctx.lineWidth=3; tctx.strokeStyle='#fff'; tctx.stroke();
           tctx.fillStyle='#fff'; tctx.font='12px system-ui'; tctx.textAlign='center'; tctx.textBaseline='middle'; tctx.fillText('S', start.x, start.y+1);
@@ -75,36 +164,54 @@
           tctx.lineWidth=3; tctx.strokeStyle='#fff'; tctx.beginPath(); tctx.arc(goal.x,goal.y,r+4,0,Math.PI*2); tctx.stroke();
           tctx.strokeStyle=(cbHC?.checked?'#ffab00':'#c5221f'); tctx.beginPath(); tctx.arc(goal.x,goal.y,r,0,Math.PI*2); tctx.stroke(); tctx.beginPath(); tctx.arc(goal.x,goal.y,Math.max(5,Math.floor(r*0.5)),0,Math.PI*2); tctx.fillStyle=(cbHC?.checked?'#ffab00':'#c5221f'); tctx.fill();
         }
-      }catch(e){ /* ignore preview errors */ }
-      // restore
-      MS.preset = keep.preset; MS.difficulty=keep.difficulty; MS.endless=keep.endless;
-      // paint into visible preview
-      pctx.clearRect(0,0,prev.width,prev.height); pctx.drawImage(tmp,0,0);
-    }
-    drawPreview();
-    mapPreset.addEventListener('change', drawPreview);
-
-  qs('#btnStart').addEventListener('click',()=>{
-      MapSettings.preset = mapPreset.value;
-      MapSettings.difficulty = Math.max(1, Math.min(5, parseInt(difficulty.value)||1));
-      MapSettings.endless = !!endless.checked;
-      Settings.buildMode = buildMode.value;
-      // store visuals too
-  try{ const KEY='td-settings-v1'; let data={}; try{ data=JSON.parse(localStorage.getItem(KEY)||'{}')||{}; }catch(_e){ data={}; } data.Visuals = { ...(data.Visuals||{}), colorblindMode: !!cbHC?.checked, reducedMotion: !!cbRM?.checked, theme: (data.Visuals && data.Visuals.theme) || 'dim' }; data.ts=Date.now(); localStorage.setItem(KEY, JSON.stringify(data)); }catch(_e){}
-      saveSettingsDump();
-      location.href = './SPEL.HTML';
-    });
-    cbHC && cbHC.addEventListener('change', drawPreview);
+        pctx.clearRect(0,0,prev.width,prev.height); pctx.drawImage(tmp,0,0);
+      }
+      drawPreview();
+      mapPreset.addEventListener('change', function(){
+        // Save selected map to localStorage for next reload
+        var KEY = 'td-settings-v1';
+        var data = {};
+        try { data = JSON.parse(localStorage.getItem(KEY)||'{}')||{}; } catch(e){ data={}; }
+        data.MapSettings = data.MapSettings || {};
+        data.MapSettings.preset = mapPreset.value;
+        localStorage.setItem(KEY, JSON.stringify(data));
+        drawPreview();
+      });
+      cbHC && cbHC.addEventListener('change', drawPreview);
+    };
   </script>
   <script>
     // Non-module fallback: draw a simple map preview inline (works over file://)
     (function(){
+      // Fallback mapping for file:// users: map new presets to legacy ones if needed
+      var PRESET_MAP = {
+        twinLanes: 'zigzag',
+        forkMerge: 'maze',
+        overpass8: 'figure8',
+        spiralCore: 'riverMeander',
+        switchbacks: 'zigzag',
+        islands: 'riverMeander',
+        portals: 'figure8',
+        pockets: 'maze'
+      };
       function bind(){
         const c = document.getElementById('mapPrev'); if(!c) return; const ctx=c.getContext('2d');
         const sel = document.getElementById('mapPreset');
         const cbHC = document.getElementById('colorblind');
       const TILE=32; // fits the 480x300 preview well
       function buildPath(preset){
+        // Fallback mapping for file:// users: map new presets to legacy ones if needed
+        var PRESET_MAP = {
+          twinLanes: 'zigzag',
+          forkMerge: 'maze',
+          overpass8: 'figure8',
+          spiralCore: 'riverMeander',
+          switchbacks: 'zigzag',
+          islands: 'riverMeander',
+          portals: 'figure8',
+          pockets: 'maze'
+        };
+        if(PRESET_MAP[preset]) preset = PRESET_MAP[preset];
         const path=[]; const COLS=Math.max(3, Math.floor(c.width/TILE)); const ROWS=Math.max(3, Math.floor(c.height/TILE));
         const cx=(col)=>col*TILE+TILE/2, cy=(row)=>row*TILE+TILE/2;
   if(preset==='maze'){
@@ -143,6 +250,9 @@
         } else if(preset==='riverBraided'){
           const samples=200, midY=c.height/2, amp=Math.max(TILE*2, c.height*0.34);
           for(let i=0;i<=samples;i++){ const t=i/samples; const x=t*c.width; const y=midY + Math.sin(t*Math.PI*2.0)*amp*0.85 + Math.sin(t*Math.PI*3.2 + Math.PI/3)*amp*0.25; path.push({x,y}); }
+        } else if(preset==='riverDelta'){
+          const samples=200, midY=c.height/2, amp=Math.max(TILE*2, c.height*0.36);
+          for(let i=0;i<=samples;i++){ const t=i/samples; const x=t*c.width; const y=midY + Math.sin(t*Math.PI*1.8)*amp*0.65 + Math.sin(t*Math.PI*4.2)*amp*0.18; path.push({x,y}); }
         } else if(preset==='random'){
           const pts=[]; const count=10;
           pts.push({x:TILE*0.75,y:c.height*0.25+Math.random()*c.height*0.5});
@@ -163,6 +273,58 @@
           for(let r=T+1;r<=B;r++) path.push({x:cx(R),y:cy(r)});
           for(let c=R-1;c>=L;c--) path.push({x:cx(c),y:cy(B)});
           for(let r=B-1;r>=T;r--) path.push({x:cx(L),y:cy(r)});
+        } else if(preset==='twinLanes'){
+          const midR=Math.floor(ROWS/2); const top=Math.max(1, midR-3), bot=Math.min(ROWS-2, midR+3);
+          for(let c2=1;c2<COLS-2;c2++) path.push({x:cx(c2),y:cy(top)});
+          for(let r=top;r<=bot;r++) path.push({x:cx(COLS-2),y:cy(r)});
+          for(let c2=COLS-2;c2>=3;c2--) path.push({x:cx(c2),y:cy(bot)});
+          for(let c2=3;c2<COLS-1;c2++){
+            const t=(c2-3)/Math.max(1,(COLS-1-3));
+            const y=Math.round(bot + (midR-bot)*t);
+            path.push({x:cx(c2), y:cy(Math.max(1, Math.min(ROWS-2,y))) });
+          }
+        } else if(preset==='forkMerge'){
+          const midC=Math.floor(COLS/2), midR=Math.floor(ROWS/2);
+          for(let c2=1;c2<=midC-1;c2++) path.push({x:cx(c2), y:cy(midR)});
+          for(let r=midR-1;r>=2;r--) path.push({x:cx(midC-1), y:cy(r)});
+          for(let c2=midC-1;c2<=midC+1;c2++) path.push({x:cx(c2), y:cy(2)});
+          for(let r=2;r<=midR;r++) path.push({x:cx(midC+1), y:cy(r)});
+          for(let r=midR+1;r<=ROWS-3;r++) path.push({x:cx(midC+1), y:cy(r)});
+          for(let c2=midC+1;c2>=midC-1;c2--) path.push({x:cx(c2), y:cy(ROWS-3)});
+          for(let r=ROWS-3;r>=midR;r--) path.push({x:cx(midC-1), y:cy(r)});
+          for(let c2=midC-1;c2<COLS-1;c2++) path.push({x:cx(c2), y:cy(midR)});
+        } else if(preset==='overpass8'){
+          const midR=Math.floor(ROWS/2), midC=Math.floor(COLS/2), off=3;
+          for(let c2=2;c2<COLS-2;c2++) path.push({x:cx(c2), y:cy(midR-off)});
+          for(let r=midR-off;r<=midR-1;r++) path.push({x:cx(COLS-2), y:cy(r)});
+          for(let c2=COLS-2;c2>=2;c2--) path.push({x:cx(c2), y:cy(midR-1)});
+          for(let r=midR-1;r>=midR-off;r--) path.push({x:cx(2), y:cy(r)});
+          for(let r=midR-off;r<=midR+off;r++) path.push({x:cx(midC), y:cy(r)});
+          for(let c2=2;c2<COLS-2;c2++) path.push({x:cx(c2), y:cy(midR+off)});
+          for(let r=midR+off;r<=midR+off+2;r++) path.push({x:cx(COLS-2), y:cy(r)});
+          for(let c2=COLS-2;c2>=2;c2--) path.push({x:cx(c2), y:cy(midR+off+2)});
+          for(let r=midR+off+2;r>=midR+off;r--) path.push({x:cx(2), y:cy(r)});
+          for(let r=midR+off;r>=midR;r--) path.push({x:cx(midC+1), y:cy(r)});
+          for(let c2=midC+1;c2<COLS-1;c2++) path.push({x:cx(c2), y:cy(midR)});
+        } else if(preset==='spiralCore'){
+          const cxp=c.width/2, cyp=c.height/2, maxR=Math.min(c.width,c.height)*0.42; const turns=2.3; const steps=140;
+          for(let i=0;i<=steps;i++){ const t=i/steps; const ang=t*Math.PI*2*turns; const r=maxR*(1-t*0.85); const x=cxp+Math.cos(ang)*r; const y=cyp+Math.sin(ang)*r; path.push({x,y}); }
+          const last=path[path.length-1]; for(let x=last.x; x<=c.width-24; x+=18){ path.push({x, y:last.y}); }
+        } else if(preset==='switchbacks'){
+          const stepR=2; let rr=2; let ltr=true;
+          while(rr<=ROWS-3){ if(ltr){ for(let c2=1;c2<COLS-1;c2++) path.push({x:cx(c2), y:cy(rr)}); } else { for(let c2=COLS-2;c2>=1;c2--) path.push({x:cx(c2), y:cy(rr)}); } const r2=Math.min(ROWS-3, rr+stepR); for(let r=rr;r<=r2;r++) path.push({x:cx(ltr?COLS-2:1), y:cy(r)}); rr=r2+1; ltr=!ltr; }
+        } else if(preset==='islands'){
+          const samples=180, midY=c.height/2, amp=Math.max(TILE*2, c.height*0.34);
+          for(let i=0;i<=samples;i++){ const t=i/samples; const x=t*c.width; const y=midY + Math.sin(t*Math.PI*1.9)*amp*0.85 + Math.sin(t*Math.PI*3.2)*amp*0.25; path.push({x,y}); }
+        } else if(preset==='portals'){
+          const midC=Math.floor(COLS/2), midR=Math.floor(ROWS/2);
+          for(let c2=1;c2<=midC;c2++) path.push({x:cx(c2), y:cy(midR)});
+          const rad=3; for(let a=0;a<=Math.PI*2;a+=Math.PI/10){ path.push({x: cx(midC)+Math.cos(a)*rad*TILE, y: cy(midR)+Math.sin(a)*rad*TILE }); }
+          for(let c2=midC+1;c2<COLS-2;c2++){ const t=(c2-(midC+1))/(COLS-(midC+1)); const y=Math.round(midR + (2-midR)*t); path.push({x:cx(c2), y:cy(Math.max(1,Math.min(ROWS-2,y))) }); }
+          for(let c2=COLS-2;c2<COLS-1;c2++) path.push({x:cx(c2), y:cy(3)});
+        } else if(preset==='pockets'){
+          const cxp=c.width/2, cyp=c.height/2; const rx=Math.max(80, c.width*0.38), ry=Math.max(60, c.height*0.28);
+          const laps=3, steps=80; for(let lap=0; lap<laps; lap++){ const shrink=1-lap*0.18; for(let i=0;i<=steps;i++){ const t=i/steps*Math.PI*2; const x=cxp+Math.cos(t)*rx*shrink; const y=cyp+Math.sin(t)*ry*shrink; path.push({x,y}); } for(let k=0;k<4;k++) path.push({x: cxp + k*4, y: cyp + k*3 }); }
         } else {
           // ring
           for(let i=0;i<COLS;i++) path.push({x:cx(i),y:cy(1)});
@@ -205,19 +367,31 @@
   function bind(){
         const btn = qs('#btnStart');
         if(!btn) return;
-        btn.addEventListener('click', ()=>{
+        btn.addEventListener('click', (ev)=>{
+          try{ ev.preventDefault(); }catch(_e){}
           try{
             const mapPreset = qs('#mapPreset')?.value || 'ring';
+            const PRESET_MAP = {
+              twinLanes: 'zigzag',
+              forkMerge: 'maze',
+              overpass8: 'figure8',
+              spiralCore: 'riverMeander',
+              switchbacks: 'zigzag',
+              islands: 'riverMeander',
+              portals: 'figure8',
+              pockets: 'maze'
+            };
+            const mapped = PRESET_MAP[mapPreset] || mapPreset;
             const diff = Math.max(1, Math.min(5, parseInt(qs('#difficulty')?.value)||1));
             const endless = !!qs('#endless')?.checked;
             const buildMode = qs('#buildMode')?.value || 'paint';
-    const colorblind = !!qs('#colorblind')?.checked;
-    const reducedMotion = !!qs('#reducedMotion')?.checked;
+            const colorblind = !!qs('#colorblind')?.checked;
+            const reducedMotion = !!qs('#reducedMotion')?.checked;
             const KEY='td-settings-v1';
             let data={};
             try{ data = JSON.parse(localStorage.getItem(KEY)||'{}')||{}; }catch(err){ data={}; }
             data.Settings = { ...(data.Settings||{}), buildMode, maxSpeed: (data.Settings && data.Settings.maxSpeed) || 5 };
-    data.MapSettings = { ...(data.MapSettings||{}), preset: mapPreset, difficulty: diff, endless };
+            data.MapSettings = { ...(data.MapSettings||{}), preset: mapped, difficulty: diff, endless };
             data.Visuals = { ...(data.Visuals||{}), colorblindMode: colorblind, reducedMotion, theme: (data.Visuals && data.Visuals.theme) || 'dim' };
             data.ts = Date.now();
             localStorage.setItem(KEY, JSON.stringify(data));
@@ -273,21 +447,7 @@
     <div class="grid">
       <div class="card">
         <label>Karta</label>
-        <select id="mapPreset">
-        <option value="ring">Outer Ring</option>
-        <option value="maze">Maze</option>
-        <option value="figure8">Figure Eight</option>
-  <option value="zigzag">Zigzag Columns</option>
-  <option value="river">River S‑curve</option>
-  <option value="riverWide">River S‑curve (Wide)</option>
-  <option value="riverTight">River S‑curve (Tight)</option>
-  <option value="riverMeander">River Meander</option>
-  <option value="riverBraided">River Braided</option>
-  <option value="riverDelta">River Delta</option>
-  <option value="random">Random Walk</option>
-  <option value="clover">Clover</option>
-  <option value="stadium">Stadium</option>
-        </select>
+  <select id="mapPreset"><!-- Options populated by JS --></select>
         <div class="row">
           <div>
             <label>Svårighet (1–5)</label>

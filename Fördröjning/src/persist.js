@@ -12,6 +12,10 @@ export function loadSettingsApply(){
     const raw = localStorage.getItem(SETTINGS_KEY);
     if(!raw) return;
     const data = JSON.parse(raw);
+    // Patch: Always set MapSettings.preset from localStorage if present
+    if(data.MapSettings && data.MapSettings.preset) {
+      MapSettings.preset = data.MapSettings.preset;
+    }
     if(data.Admin){ Object.assign(Admin, data.Admin); }
     if(data.Settings){
       Settings.maxSpeed = data.Settings.maxSpeed ?? Settings.maxSpeed;
@@ -20,7 +24,7 @@ export function loadSettingsApply(){
     if(data.Visuals){ Object.assign(Visuals, data.Visuals); }
     if(data.MapSettings){ Object.assign(MapSettings, data.MapSettings); }
     if(data.Audio){ Object.assign(Audio, data.Audio); }
-  if(data.Skills){ Object.assign(Skills, data.Skills); }
+    if(data.Skills){ Object.assign(Skills, data.Skills); }
     if(data.TOWER_TYPES){
       // Merge tower types; don't remove existing, override by id
       for(const id of Object.keys(data.TOWER_TYPES)){

@@ -73,100 +73,38 @@
   const path=[]; const COLS=Math.floor(canvas.width/TILE); const ROWS=Math.floor(canvas.height/TILE);
   // Apply high-contrast UI class early
   try{ if(Visuals.colorblindMode){ document.documentElement.classList.add('td-hc'); document.body && document.body.classList.add('td-hc'); } }catch(_e){}
-  // Build a simple preset path based on _Map.preset
-  if(_Map.preset==='maze'){
-    for(let i=1;i<COLS-1;i++) path.push({x:i*TILE+TILE/2,y:TILE*1.5});
-    for(let r=2;r<ROWS-2;r++) path.push({x:(COLS-2)*TILE+TILE/2,y:r*TILE+TILE/2});
-    for(let i=COLS-2;i>1;i--) path.push({x:i*TILE+TILE/2,y:(ROWS-3)*TILE+TILE/2});
-    for(let r=ROWS-4;r>1;r--) path.push({x:2*TILE+TILE/2,y:r*TILE+TILE/2});
-  } else if(_Map.preset==='figure8'){
-    for(let i=1;i<COLS-1;i++) path.push({x:i*TILE+TILE/2,y:TILE*1.5});
-    for(let r=2;r<Math.floor(ROWS/2);r++) path.push({x:(COLS-2)*TILE+TILE/2,y:r*TILE+TILE/2});
-    for(let i=COLS-2;i>1;i--) path.push({x:i*TILE+TILE/2,y:Math.floor(ROWS/2)*TILE+TILE/2});
-    for(let r=Math.floor(ROWS/2)+1;r<ROWS-2;r++) path.push({x:2*TILE+TILE/2,y:r*TILE+TILE/2});
-    for(let i=2;i<COLS-1;i++) path.push({x:i*TILE+TILE/2,y:(ROWS-2)*TILE+TILE/2});
-  } else if(_Map.preset==='zigzag'){
-    // Snake across rows left-right, then right-left
-    let leftToRight=true;
-    for(let r=1;r<ROWS-1;r++){
-      if(leftToRight){
-        for(let c=1;c<COLS-1;c++) path.push({x:c*TILE+TILE/2,y:r*TILE+TILE/2});
-      } else {
-        for(let c=COLS-2;c>0;c--) path.push({x:c*TILE+TILE/2,y:r*TILE+TILE/2});
+  // Bygg endast path från localStorage (td-maps-v1) och ta bort all preset/hårdkodad logik
+  // Om ingen karta finns i localStorage, skapa och spara en default "ring"-karta
+  let mapFound = false;
+  try {
+    let mapsRaw = localStorage.getItem('td-maps-v1');
+    let maps = [];
+    if (mapsRaw) {
+      maps = JSON.parse(mapsRaw) || [];
+    }
+    // Om inga maps finns, skapa en default "ring"-karta
+    if (!maps || !Array.isArray(maps) || maps.length === 0) {
+      // Bygg klassisk ring-bana
+      const points = [];
+      for(let i=0;i<COLS;i++) points.push({x:i*TILE+TILE/2,y:TILE*1.5});
+      for(let r=2;r<ROWS-2;r++) points.push({x:(COLS-1)*TILE+TILE/2,y:r*TILE+TILE/2});
+      for(let i=COLS-1;i>=0;i--) points.push({x:i*TILE+TILE/2,y:(ROWS-2)*TILE+TILE/2});
+      maps = [{ name: 'ring', points }];
+      localStorage.setItem('td-maps-v1', JSON.stringify(maps));
+    }
+    // Försök hitta rätt karta (sök på id istället för name)
+    const found = maps.find(m => m && m.id === _Map.preset && Array.isArray(m.points));
+    if (found && found.points && found.points.length > 1) {
+      for (const pt of found.points) {
+        if (typeof pt.x === 'number' && typeof pt.y === 'number') path.push({x: pt.x, y: pt.y});
       }
-      // step down one row between stripes
-      if(r<ROWS-2){
-        const last=path[path.length-1];
-        path.push({x:last.x,y:(r+1)*TILE+TILE/2});
-      }
-      leftToRight=!leftToRight;
+      mapFound = path.length > 1;
     }
-  } else if(_Map.preset==='river' || _Map.preset==='spiral'){
-    // Smooth sine-like river from left to right
-    const samples=160;
-    const midY=canvas.height/2;
-    const amp=Math.max(TILE*2, canvas.height*0.32);
-    for(let i=0;i<=samples;i++){
-      const t=i/samples;
-      const x=t*canvas.width;
-      const y=midY + Math.sin(t*Math.PI*2.2)*amp*0.8 + Math.sin(t*Math.PI*5.4)*amp*0.2;
-      path.push({x,y});
-    }
-  } else if(_Map.preset==='riverWide'){
-    const samples=160; const midY=canvas.height/2; const amp=Math.max(TILE*2, canvas.height*0.42);
-    for(let i=0;i<=samples;i++){ const t=i/samples; const x=t*canvas.width; const y=midY + Math.sin(t*Math.PI*1.9)*amp; path.push({x,y}); }
-  } else if(_Map.preset==='riverTight'){
-    const samples=180; const midY=canvas.height/2; const amp=Math.max(TILE*2, canvas.height*0.25);
-    for(let i=0;i<=samples;i++){ const t=i/samples; const x=t*canvas.width; const y=midY + Math.sin(t*Math.PI*3.0)*amp*0.85 + Math.sin(t*Math.PI*6.0)*amp*0.18; path.push({x,y}); }
-  } else if(_Map.preset==='riverMeander'){
-    const samples=200; const midY=canvas.height/2; const amp=Math.max(TILE*2, canvas.height*0.36);
-    for(let i=0;i<=samples;i++){ const t=i/samples; const x=t*canvas.width; const y=midY + Math.sin(t*Math.PI*1.6)*amp*0.9 + Math.sin(t*Math.PI*4.0)*amp*0.28; path.push({x,y}); }
-  } else if(_Map.preset==='riverBraided'){
-  const samples=200; const midY=canvas.height/2; const amp=Math.max(TILE*2, canvas.height*0.34);
-  for(let i=0;i<=samples;i++){ const t=i/samples; const x=t*canvas.width; const y=midY + Math.sin(t*Math.PI*2.0)*amp*0.85 + Math.sin(t*Math.PI*3.2 + Math.PI/3)*amp*0.25; path.push({x,y}); }
-  } else if(_Map.preset==='riverDelta'){
-  const samples=200; const midY=canvas.height/2; const amp=Math.max(TILE*2, canvas.height*0.32);
-  for(let i=0;i<=samples;i++){ const t=i/samples; const x=t*canvas.width; const y=midY + Math.sin(t*Math.PI*2.0)*amp*0.65 + Math.sin(t*Math.PI*2.8)*amp*0.18; path.push({x,y}); }
-  } else if(_Map.preset==='random'){
-    // Random waypoints, sorted by x, with start near left and end near right
-    const pts=[];
-    const count=10;
-    pts.push({x:TILE*0.75,y:canvas.height*0.25+Math.random()*canvas.height*0.5});
-    for(let i=0;i<count;i++){
-      pts.push({x:Math.random()*canvas.width, y:TILE*0.75+Math.random()*(canvas.height-TILE*1.5)});
-    }
-    pts.push({x:canvas.width-TILE*0.75,y:canvas.height*0.25+Math.random()*canvas.height*0.5});
-    pts.sort((a,b)=>a.x-b.x);
-    for(const p of pts) path.push(p);
-  } else if(_Map.preset==='clover'){
-    // 4-leaf clover (rose curve) centered in canvas
-    const cx=canvas.width/2, cy=canvas.height/2;
-    const R=Math.max(TILE*3, Math.min(canvas.width,canvas.height)*0.32);
-    const steps=180;
-    for(let i=0;i<=steps;i++){
-      const t=i/steps*Math.PI*2;
-      const r=R*Math.cos(2*t);
-      const x=cx + r*Math.cos(t);
-      const y=cy + r*Math.sin(t);
-      path.push({x,y});
-    }
-  } else if(_Map.preset==='stadium'){
-    // Oval/elliptical track
-    const cx=canvas.width/2, cy=canvas.height/2;
-    const rx=Math.max(TILE*4, canvas.width*0.42);
-    const ry=Math.max(TILE*3, canvas.height*0.32);
-    const steps=160;
-    for(let i=0;i<=steps;i++){
-      const t=i/steps*Math.PI*2;
-      const x=cx + Math.cos(t)*rx;
-      const y=cy + Math.sin(t)*ry;
-      path.push({x,y});
-    }
-  } else {
-    // ring (outer ring)
-    for(let i=0;i<COLS;i++) path.push({x:i*TILE+TILE/2,y:TILE*1.5});
-    for(let r=2;r<ROWS-2;r++) path.push({x:(COLS-1)*TILE+TILE/2,y:r*TILE+TILE/2});
-    for(let i=COLS-1;i>=0;i--) path.push({x:i*TILE+TILE/2,y:(ROWS-2)*TILE+TILE/2});
+  } catch (e) {}
+  if (!mapFound) {
+    // Visa felmeddelande och stoppa spelet om ingen karta hittas
+    alert('Ingen giltig karta hittades i localStorage för namn: ' + _Map.preset + '\nSkapa en karta i ADMIN.html!');
+    throw new Error('Ingen giltig karta hittades i localStorage.');
   }
   function dist(a,b){return Math.hypot(a.x-b.x,a.y-b.y)}
   // Default towers, then merge persisted ones

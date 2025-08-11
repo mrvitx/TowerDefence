@@ -12,6 +12,17 @@ window.__TD_BOOTED = true;
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 
+// Force MapSettings.preset from localStorage before anything else
+try {
+  const raw = localStorage.getItem('td-settings-v1');
+  if (raw) {
+    const data = JSON.parse(raw);
+    if (data && data.MapSettings && data.MapSettings.preset) {
+      MapSettings.preset = data.MapSettings.preset;
+    }
+  }
+} catch (e) {}
+
 // Load saved settings first, then reset to apply Admin defaults
 try{ loadSettingsApply(); }catch(e){}
 // Apply theme variables from Visuals (presets + accent) to CSS vars
@@ -32,12 +43,10 @@ try{ loadSettingsApply(); }catch(e){}
     if(Visuals._compact){ document.body.classList.add('hud-compact'); } else { document.body.classList.remove('hud-compact'); }
   }catch(_e){}
 })();
-// Try loading XML file alongside game (e.g., saved from Admin),
-// but avoid overriding a selection made moments ago on START.html
+// Optional: auto-load XML only if explicitly enabled
 try{
-  let recent = false;
-  try{ const raw=localStorage.getItem('td-settings-v1'); if(raw){ const d=JSON.parse(raw); const ts=d&&d.ts||0; if(ts && (Date.now()-ts) < 3000) recent=true; } }catch(_e){}
-  if(!recent){ await tryAutoLoadXML(); }
+  const enable = localStorage.getItem('td-auto-xml') === '1';
+  if(enable){ await tryAutoLoadXML(); }
 }catch(e){}
 resetGame();
 // Lightweight seeded RNG (mulberry32) and seed bootstrap

@@ -131,7 +131,10 @@ const admin = document.getElementById('admin');
 const closeAdmin = document.getElementById('closeAdmin');
 
 // Local UI state
-let selectedTool = 'cannon';
+// Start with no preselected build tool; player must choose a tower first
+let selectedTool = null;
+// Require explicit choice before first placement (works even if a default gets set elsewhere)
+let _hasToolSelected = false;
 let hoverPos = null; let selectedTower = null;
 let isPainting = false; let lastPaintCell = null; let placingDef = null;
 // Heatmap cache
@@ -214,7 +217,7 @@ export function refreshTowerButtons(){
     }
   const btn=document.createElement('button'); btn.style.display='block'; btn.style.width='100%';
   decorateButton(btn, def.income ? 'i-coin' : 'i-tower', `${i} ${def.label} (${def.cost})`);
-  btn.onclick=()=>{ selectedTool = def.id; highlightAffordable(); };
+  btn.onclick=()=>{ selectedTool = def.id; _hasToolSelected = true; highlightAffordable(); };
     // Mini stats line
     const statsLine=document.createElement('div'); statsLine.className='small';
     if(def.income){ statsLine.textContent = `Income: ${def.income}/våg`; }
@@ -504,6 +507,12 @@ export function wireUI(){
   // Ensure legacy sidebar upgrade controls are hidden; popup is used instead
   if(upgControls){ upgControls.classList.add('hidden'); }
   refreshTowerButtons();
+  // Hard reset any residual build state on startup
+  selectedTool = null;
+  _hasToolSelected = false;
+  placingDef = null;
+  isPainting = false;
+  lastPaintCell = null;
   // Canvas interactions - paint mode
   canvas.addEventListener('pointermove',e=>{
     hoverPos = getSnappedFromEvent(e);
@@ -532,6 +541,8 @@ export function wireUI(){
       const near = State.enemies.find(e2=> Math.hypot(e2.pos.x - hoverPos.x, e2.pos.y - hoverPos.y) < 22);
       if(near){ selectedTower._manualTarget = near; positionUpgPopup(); return; }
     }
+  // Guard: do not place unless player explicitly picked a tool
+  if(!_hasToolSelected) return;
     const def = TOWER_TYPES[selectedTool]; if(!def) return;
     placingDef = def; selectedTower=null; showSelectedInfo();
     if(Settings.buildMode==='paint'){
@@ -801,6 +812,7 @@ export function wireUI(){
   if(e.key==='1'){ selectedTool = Object.keys(TOWER_TYPES)[0]; }
   if(e.key==='2'){ selectedTool = Object.keys(TOWER_TYPES)[1]; }
   if(e.key==='3'){ selectedTool = Object.keys(TOWER_TYPES)[2]; }
+  if(/^[1-9]$/.test(e.key||'')) { _hasToolSelected = true; }
   if(e.key.toLowerCase()==='u'){ if(selectedTower && State.money>=Admin.upgCost.dmg){ State.money -= Admin.upgCost.dmg; selectedTower.levels.dmg++; showSelectedInfo(); } }
   if(e.key === '+'){ const v=Math.min(Settings.maxSpeed, Settings.gameSpeed + 0.25); changeSpeed(v); if(State.replay?.recording){ try{ State.replay.events.push({ t:State.gameTime||0, type:'speed', v }); }catch(_e){} } }
   if(e.key === '-') { const v=Math.max(0.25, Settings.gameSpeed - 0.25); changeSpeed(v); if(State.replay?.recording){ try{ State.replay.events.push({ t:State.gameTime||0, type:'speed', v }); }catch(_e){} } }

@@ -17,250 +17,11 @@
     .footer{margin-top:18px;display:flex;gap:8px}
     a{color:#8cf}
   </style>
-  <script type="module">
-  import { Admin, Settings, Visuals, MapSettings, Audio } from './src/constants.js';
-    import { TOWER_TYPES } from './src/towers.js';
-    import { saveSettingsDump, loadSettingsApply, saveSettingsAsXML, importSettingsXMLFromText } from './src/persist.js';
-    loadSettingsApply();
-    const qs = s=>document.querySelector(s);
-    const adminStartMoney = qs('#adminStartMoney');
-    const adminStartLives = qs('#adminStartLives');
-    const adminMaxSpeed = qs('#adminMaxSpeed');
-  const uiShowGrid = qs('#uiShowGrid');
-  const uiPathWidth = qs('#uiPathWidth');
-  const mapPreset = qs('#mapPreset');
-  const mapDifficulty = qs('#mapDifficulty');
-  const endless = qs('#endless');
-  const buildMode = qs('#buildMode');
-  const mute = qs('#mute');
-    const towersList = qs('#towersList');
-    const form = {
-      name: qs('#newName'), cost: qs('#newCost'), range: qs('#newRange'), dmg: qs('#newDmg'), rate: qs('#newRate'), color: qs('#newColor')
-    };
-    // Init values
-    adminStartMoney.value = Admin.startMoney;
-    adminStartLives.value = Admin.startLives;
-    adminMaxSpeed.value = Settings.maxSpeed;
-  uiShowGrid.value = Visuals.showGrid? '1':'0';
-  uiPathWidth.value = Visuals.pathWidth;
-  mapPreset.value = MapSettings.preset;
-  mapDifficulty.value = String(MapSettings.difficulty);
-  endless.checked = !!MapSettings.endless;
-  buildMode.value = Settings.buildMode;
-  mute.checked = !!Audio.muted;
-    function refreshList(){
-      towersList.innerHTML = '';
-      Object.values(TOWER_TYPES).forEach(def=>{
-        const li = document.createElement('div'); li.className='row'; li.style.justifyContent='space-between'; li.style.alignItems='center';
-        const left = document.createElement('div'); left.className='row';
-        left.innerHTML = `<strong style="width:120px">${def.label}</strong><span>pris ${def.cost}</span><span>R ${def.range}</span><span>D ${def.dmg}</span><span>Rt ${def.fireRate}s</span>`;
-        const right = document.createElement('div');
-        if(!def.builtIn){
-          const del=document.createElement('button'); del.textContent='Ta bort'; del.style.background='#b33'; del.style.marginLeft='8px';
-          del.addEventListener('click',()=>{
-            if(!confirm(`Ta bort tornet "${def.label}"?`)) return;
-            delete TOWER_TYPES[def.id];
-            saveSettingsDump();
-            try{ loadSettingsApply(); }catch(e){}
-            refreshList();
-            savedAt.textContent='Torn borttaget ' + new Date().toLocaleTimeString();
-          });
-          right.appendChild(del);
-        }
-        li.appendChild(left); li.appendChild(right);
-        towersList.appendChild(li);
-      });
-    }
-    refreshList();
-    // Save settings (with immediate verification and UI feedback)
-    const savedAt = document.createElement('div');
-    savedAt.className='small';
-    qs('.panel').appendChild(savedAt);
-  qs('#btnSave').addEventListener('click',()=>{
-      Admin.startMoney = parseInt(adminStartMoney.value)||Admin.startMoney;
-      Admin.startLives = parseInt(adminStartLives.value)||Admin.startLives;
-      Settings.maxSpeed = Math.max(1, parseFloat(adminMaxSpeed.value)||Settings.maxSpeed);
-  Visuals.showGrid = uiShowGrid.value==='1';
-  Visuals.pathWidth = Math.max(8, Math.min(64, parseInt(uiPathWidth.value)||Visuals.pathWidth));
-  MapSettings.preset = mapPreset.value;
-  MapSettings.difficulty = Math.max(1, Math.min(5, parseInt(mapDifficulty.value)||MapSettings.difficulty));
-  MapSettings.endless = !!endless.checked;
-  Settings.buildMode = buildMode.value;
-  Audio.muted = !!mute.checked;
-      saveSettingsDump();
-      try{
-        // Verify round-trip read
-        loadSettingsApply();
-        savedAt.textContent = 'Sparat ' + new Date().toLocaleTimeString();
-      }catch(e){ savedAt.textContent='Sparfel – testa igen'; }
-    });
-  // Add tower
-    qs('#btnAddTower').addEventListener('click',()=>{
-      let id = (form.name.value||'').trim().toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9\-]/g,'');
-      if(!id) return alert('Ogiltigt namn');
-      if(TOWER_TYPES[id]) return alert('Id finns redan');
-      const def = {
-        id,
-        label: form.name.value||id,
-        cost: Math.max(1, parseInt(form.cost.value)||50),
-        range: Math.max(20, parseInt(form.range.value)||80),
-        dmg: Math.max(1, parseInt(form.dmg.value)||5),
-        fireRate: Math.max(0.05, parseFloat(form.rate.value)||1),
-        color: /^#([0-9a-f]{3}){1,2}$/i.test(form.color.value) ? form.color.value : '#ccc',
-        sellFactor: 0.7
-      };
-  TOWER_TYPES[id] = def;
-  refreshList();
-  saveSettingsDump();
-  try{ loadSettingsApply(); savedAt.textContent='Torn sparat ' + new Date().toLocaleTimeString(); }catch(e){ savedAt.textContent='Torn sparfel'; }
-    });
-    // XML export/import
-    const btnExport = document.getElementById('btnExportXML');
-    const btnImport = document.getElementById('btnImportXML');
-    const fileInput = document.getElementById('xmlFile');
-    btnExport.addEventListener('click',()=>{ saveSettingsAsXML(); });
-    btnImport.addEventListener('click',()=>{ fileInput.click(); });
-    fileInput.addEventListener('change',async ()=>{
-      const f = fileInput.files && fileInput.files[0]; if(!f) return;
-      const text = await f.text();
-      const ok = await importSettingsXMLFromText(text);
-      if(ok){ loadSettingsApply(); refreshList(); savedAt.textContent='XML importerat ' + new Date().toLocaleTimeString(); }
-      else { alert('Kunde inte importera XML.'); }
-    });
-    // mark module as loaded so fallback won’t double-bind
-    window.__adminModuleLoaded = true;
-  </script>
-  <script>
-    // Fallback for file:// when ES modules are blocked: wire Admin using localStorage and inline XML
-    (function(){
-      function run(){ if(window.__adminModuleLoaded) return; // module worked; skip fallback
-      var qs = function(s){ return document.querySelector(s); };
-      var KEY='td-settings-v1';
-      function loadLocal(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}')||{}; }catch(e){ return {}; } }
-      function saveLocal(obj){ try{ obj.ts=Date.now(); localStorage.setItem(KEY, JSON.stringify(obj)); return true; }catch(e){ return false; } }
-      function ensureShape(d){
-        d.Admin = d.Admin || { startMoney:100, startLives:10, upgCost:{dmg:30,range:25,rate:35} };
-        d.Settings = d.Settings || { maxSpeed:5, buildMode:'paint' };
-        d.Visuals = d.Visuals || { showGrid:true, pathWidth:24 };
-        d.MapSettings = d.MapSettings || { preset:'ring', difficulty:1, endless:false };
-        d.Audio = d.Audio || { muted:true };
-        d.TOWER_TYPES = d.TOWER_TYPES || {};
-        return d;
-      }
-      function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;'); }
-      function toXML(d){
-        d=ensureShape(d);
-        var t = Object.keys(d.TOWER_TYPES).map(function(id){ var def=d.TOWER_TYPES[id]; return '    <Tower id="'+esc(def.id||id)+'" label="'+esc(def.label||id)+'" cost="'+(def.cost||50)+'" range="'+(def.range||80)+'" dmg="'+(def.dmg||5)+'" fireRate="'+(def.fireRate||1)+'" color="'+esc(def.color||'#ccc')+'" sellFactor="'+(def.sellFactor==null?0.7:def.sellFactor)+'"'+(def.aoe?' aoe="'+def.aoe+'"':'')+(def.slow?' slow="'+def.slow+'"':'')+(def.slowTime?' slowTime="'+def.slowTime+'"':'')+' />'; }).join('\n');
-        return '<?xml version="1.0" encoding="UTF-8"?>\n<kaffekatten>\n  <Admin startMoney="'+d.Admin.startMoney+'" startLives="'+d.Admin.startLives+'">\n    <upgCost dmg="'+d.Admin.upgCost.dmg+'" range="'+d.Admin.upgCost.range+'" rate="'+d.Admin.upgCost.rate+'" />\n  </Admin>\n  <Settings maxSpeed="'+d.Settings.maxSpeed+'" buildMode="'+esc(d.Settings.buildMode)+'" />\n  <Visuals showGrid="'+!!d.Visuals.showGrid+'" pathWidth="'+d.Visuals.pathWidth+'" />\n  <Map preset="'+esc(d.MapSettings.preset)+'" difficulty="'+d.MapSettings.difficulty+'" endless="'+!!d.MapSettings.endless+'" />\n  <Audio muted="'+!!d.Audio.muted+'" />\n  <Towers>\n'+t+'\n  </Towers>\n  <timestamp>'+Date.now()+'</timestamp>\n</kaffekatten>';
-      }
-      function applyXMLToObj(text, d){
-        var parser = new DOMParser(); var doc = parser.parseFromString(text,'application/xml');
-        if(doc.querySelector('parsererror')) return false;
-        function get(sel){ return doc.querySelector(sel); }
-        d=ensureShape(d);
-        var adminEl = get('kaffekatten > Admin'); if(adminEl){ var sm=parseInt(adminEl.getAttribute('startMoney')); var sl=parseInt(adminEl.getAttribute('startLives')); if(!isNaN(sm)) d.Admin.startMoney=sm; if(!isNaN(sl)) d.Admin.startLives=sl; var upg=get('kaffekatten > Admin > upgCost'); if(upg){ var dd=parseInt(upg.getAttribute('dmg')); var rr=parseInt(upg.getAttribute('range')); var rt=parseInt(upg.getAttribute('rate')); if(!isNaN(dd)) d.Admin.upgCost.dmg=dd; if(!isNaN(rr)) d.Admin.upgCost.range=rr; if(!isNaN(rt)) d.Admin.upgCost.rate=rt; } }
-        var setEl = get('kaffekatten > Settings'); if(setEl){ var ms=parseFloat(setEl.getAttribute('maxSpeed')); var bm=setEl.getAttribute('buildMode'); if(!isNaN(ms)) d.Settings.maxSpeed=ms; if(bm) d.Settings.buildMode=bm; }
-        var visEl = get('kaffekatten > Visuals'); if(visEl){ d.Visuals.showGrid = visEl.getAttribute('showGrid')==='true'; var pw=parseInt(visEl.getAttribute('pathWidth')); if(!isNaN(pw)) d.Visuals.pathWidth=pw; }
-        var mapEl = get('kaffekatten > Map'); if(mapEl){ var pr=mapEl.getAttribute('preset'); var df=parseInt(mapEl.getAttribute('difficulty')); var en=mapEl.getAttribute('endless')==='true'; if(pr) d.MapSettings.preset=pr; if(!isNaN(df)) d.MapSettings.difficulty=df; d.MapSettings.endless=en; }
-        var audEl = get('kaffekatten > Audio'); if(audEl){ d.Audio.muted = audEl.getAttribute('muted')==='true'; }
-        var towers = doc.querySelectorAll('kaffekatten > Towers > Tower'); towers.forEach(function(el){ var id = el.getAttribute('id'); if(!id) return; var def = d.TOWER_TYPES[id] || { id:id }; def.id=id; def.label=el.getAttribute('label')||id; function ni(name){ var v=parseFloat(el.getAttribute(name)); return isNaN(v)?undefined:v; } function str(name){ return el.getAttribute(name); } var merged={
-          id: def.id,
-          label: def.label,
-          cost: ni('cost') ?? def.cost ?? 50,
-          range: ni('range') ?? def.range ?? 80,
-          dmg: ni('dmg') ?? def.dmg ?? 5,
-          fireRate: ni('fireRate') ?? def.fireRate ?? 1,
-          color: str('color') || def.color || '#ccc',
-          sellFactor: ni('sellFactor') ?? def.sellFactor ?? 0.7,
-          aoe: ni('aoe') ?? def.aoe,
-          slow: ni('slow') ?? def.slow,
-          slowTime: ni('slowTime') ?? def.slowTime,
-        }; d.TOWER_TYPES[id]=merged; });
-        return d;
-      }
-
-      // UI wire
-      var adminStartMoney = qs('#adminStartMoney');
-      var adminStartLives = qs('#adminStartLives');
-      var adminMaxSpeed = qs('#adminMaxSpeed');
-      var uiShowGrid = qs('#uiShowGrid');
-      var uiPathWidth = qs('#uiPathWidth');
-      var mapPreset = qs('#mapPreset');
-      var mapDifficulty = qs('#mapDifficulty');
-      var endless = qs('#endless');
-      var buildMode = qs('#buildMode');
-      var mute = qs('#mute');
-  var towersList = qs('#towersList');
-      var savedAt = document.createElement('div'); savedAt.style.marginTop='8px'; savedAt.style.fontSize='12px'; savedAt.style.color='#aaa';
-      var firstPanel = document.querySelector('.panel'); if(firstPanel) firstPanel.appendChild(savedAt);
-
-      var data = ensureShape(loadLocal());
-      function refreshList(){
-        towersList.innerHTML='';
-        Object.keys(data.TOWER_TYPES).forEach(function(k){
-          var def=data.TOWER_TYPES[k];
-          var li=document.createElement('div'); li.className='row'; li.style.justifyContent='space-between';
-          var left=document.createElement('div'); left.className='row';
-          left.innerHTML='<strong style="width:120px">'+(def.label||def.id)+'</strong><span>pris '+(def.cost||'')+'</span><span>R '+(def.range||'')+'</span><span>D '+(def.dmg||'')+'</span><span>Rt '+(def.fireRate||'')+'s</span>';
-          var right=document.createElement('div');
-          if(!def.builtIn){
-            var del=document.createElement('button'); del.textContent='Ta bort'; del.style.background='#b33'; del.style.marginLeft='8px';
-            del.addEventListener('click', function(){ if(!confirm('Ta bort tornet \''+(def.label||def.id)+'\'?')) return; delete data.TOWER_TYPES[def.id]; saveLocal(data); refreshList(); savedAt.textContent='Torn borttaget ' + new Date().toLocaleTimeString(); });
-            right.appendChild(del);
-          }
-          li.appendChild(left); li.appendChild(right);
-          towersList.appendChild(li);
-        });
-      }
-      function fill(){ adminStartMoney.value=data.Admin.startMoney; adminStartLives.value=data.Admin.startLives; adminMaxSpeed.value=data.Settings.maxSpeed; uiShowGrid.value=data.Visuals.showGrid?'1':'0'; uiPathWidth.value=data.Visuals.pathWidth; mapPreset.value=data.MapSettings.preset; mapDifficulty.value=String(data.MapSettings.difficulty); endless.checked=!!data.MapSettings.endless; buildMode.value=data.Settings.buildMode; mute.checked=!!data.Audio.muted; refreshList(); }
-      fill();
-
-      // Save button
-      var btnSave = qs('#btnSave');
-      btnSave && btnSave.addEventListener('click', function(){
-        data.Admin.startMoney = parseInt(adminStartMoney.value)||data.Admin.startMoney;
-        data.Admin.startLives = parseInt(adminStartLives.value)||data.Admin.startLives;
-        data.Settings.maxSpeed = Math.max(1, parseFloat(adminMaxSpeed.value)||data.Settings.maxSpeed);
-        data.Visuals.showGrid = uiShowGrid.value==='1';
-        data.Visuals.pathWidth = Math.max(8, Math.min(64, parseInt(uiPathWidth.value)||data.Visuals.pathWidth));
-        data.MapSettings.preset = mapPreset.value;
-        data.MapSettings.difficulty = Math.max(1, Math.min(5, parseInt(mapDifficulty.value)||data.MapSettings.difficulty));
-        data.MapSettings.endless = !!endless.checked;
-        data.Settings.buildMode = buildMode.value;
-        data.Audio.muted = !!mute.checked;
-        saveLocal(data);
-        savedAt.textContent='Sparat ' + new Date().toLocaleTimeString();
-      });
-
-      // Add tower
-      var form = { name: qs('#newName'), cost: qs('#newCost'), range: qs('#newRange'), dmg: qs('#newDmg'), rate: qs('#newRate'), color: qs('#newColor') };
-      var btnAddTower = qs('#btnAddTower');
-      btnAddTower && btnAddTower.addEventListener('click', function(){
-        var id = (form.name.value||'').trim().toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9\-]/g,''); if(!id){ alert('Ogiltigt namn'); return; }
-        if(data.TOWER_TYPES[id]){ alert('Id finns redan'); return; }
-        var def={ id:id, label: form.name.value||id, cost: Math.max(1, parseInt(form.cost.value)||50), range: Math.max(20, parseInt(form.range.value)||80), dmg: Math.max(1, parseInt(form.dmg.value)||5), fireRate: Math.max(0.05, parseFloat(form.rate.value)||1), color: /^#([0-9a-f]{3}){1,2}$/i.test(form.color.value) ? form.color.value : '#ccc', sellFactor: 0.7 };
-        data.TOWER_TYPES[id]=def; saveLocal(data); refreshList(); savedAt.textContent='Torn sparat ' + new Date().toLocaleTimeString();
-      });
-
-      // Export XML
-      var btnExport = document.getElementById('btnExportXML');
-      btnExport && btnExport.addEventListener('click', function(){
-        try{ var xml=toXML(data); var blob=new Blob([xml],{type:'application/xml'}); var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='kaffekatten-settings.xml'; document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); },0); }catch(e){ alert('Kunde inte exportera XML.'); }
-      });
-
-      // Import XML
-      var btnImport = document.getElementById('btnImportXML'); var fileInput=document.getElementById('xmlFile');
-      btnImport && btnImport.addEventListener('click', function(){ fileInput && fileInput.click(); });
-      fileInput && fileInput.addEventListener('change', function(){ var f=fileInput.files && fileInput.files[0]; if(!f) return; var reader=new FileReader(); reader.onload=function(){ var txt=String(reader.result||''); var ok = applyXMLToObj(txt, data); if(ok){ saveLocal(data); fill(); savedAt.textContent='XML importerat ' + new Date().toLocaleTimeString(); } else { alert('Ogiltig XML.'); } }; reader.readAsText(f); });
-      }
-      if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', run); else run();
-    })();
-  </script>
 </head>
 <body>
   <div class="wrap">
     <h2>Admin • Kaffekatten TD</h2>
-    <div class="grid">
+    <div class="grid" style="grid-template-columns:1fr 1fr 1fr; gap:16px">
       <div class="panel">
         <h3>Spelinställningar</h3>
         <label>Startpengar</label>
@@ -274,11 +35,7 @@
         <label>Vägbredd</label>
         <input id="uiPathWidth" type="number" value="24" min="8" max="64" />
           <label>Karta</label>
-          <select id="mapPreset">
-            <option value="ring">Outer Ring</option>
-            <option value="maze">Maze</option>
-            <option value="figure8">Figure Eight</option>
-          </select>
+          <select id="mapPreset"><!-- Options populated by JS --></select>
           <label>Svårighet (1-5)</label>
           <input id="mapDifficulty" type="number" value="1" min="1" max="5" />
           <label><input id="endless" type="checkbox" /> Endless</label>
@@ -308,7 +65,309 @@
         <div class="row"><input id="newColor" placeholder="#rrggbb" value="#ffb86b" /></div>
         <button id="btnAddTower">Lägg till torn</button>
       </div>
+      <div class="panel" id="mapsPanel">
+        <h3>Kartor</h3>
+        <div id="mapsList" style="display:flex;flex-direction:column;gap:6px"></div>
+        <div class="footer">
+          <button id="btnNewMap">Ny karta</button>
+          <button id="btnRestoreDefaults" style="background:#888">Återställ standardkartor</button>
+        </div>
+        <div id="mapEditSection" style="margin-top:14px;display:none">
+          <h4 id="mapEditTitle">Redigera karta</h4>
+          <input id="mapName" placeholder="Namn" style="width:100%;margin-bottom:6px" />
+          <textarea id="mapDesc" placeholder="Beskrivning" style="width:100%;min-height:36px;margin-bottom:6px"></textarea>
+          <div style="margin-bottom:6px">Redigera väg grafiskt:</div>
+          <canvas id="mapCanvas" width="360" height="240" style="background:#222;border-radius:8px;display:block;margin-bottom:8px;touch-action:none;aspect-ratio:3/2"></canvas>
+          <div class="row" style="gap:8px">
+            <button id="btnSaveMap">Spara karta</button>
+            <button id="btnCancelMap" style="background:#888">Avbryt</button>
+            <button id="btnDeleteMap" style="background:#b33;display:none">Ta bort</button>
+          </div>
+          <div class="small" id="mapEditHint" style="margin-top:6px;color:#aaa"></div>
+        </div>
+      </div>
     </div>
   </div>
+  <script src="src/maps.js"></script>
+  <script>
+    window.onload = function() {
+      // --- Robust Map Management UI (file:// compatible) ---
+      function get(id) {
+        const el = document.getElementById(id);
+        if (!el) console.error('Element not found:', id);
+        return el;
+      }
+      const mapsList = get('mapsList');
+      const btnNewMap = get('btnNewMap');
+      const btnRestoreDefaults = get('btnRestoreDefaults');
+      const mapEditSection = get('mapEditSection');
+      const mapEditTitle = get('mapEditTitle');
+      const mapName = get('mapName');
+      const mapDesc = get('mapDesc');
+      const mapCanvas = get('mapCanvas');
+      const btnSaveMap = get('btnSaveMap');
+      const btnCancelMap = get('btnCancelMap');
+      const btnDeleteMap = get('btnDeleteMap');
+      const mapEditHint = get('mapEditHint');
+      let editingMap = null;
+
+      function renderMapsList() {
+        try {
+          const maps = window.Maps.loadMaps();
+          mapsList.innerHTML = '';
+          for (const map of maps) {
+            const row = document.createElement('div');
+            row.className = 'row';
+            row.style.justifyContent = 'space-between';
+            row.style.alignItems = 'center';
+            row.style.gap = '8px';
+            row.style.background = map.type === 'default' ? '#181818' : '#232';
+            row.style.borderRadius = '6px';
+            row.style.padding = '4px 8px';
+            row.innerHTML = `<div><strong>${map.name}</strong> <span class="small" style="color:#aaa">(${map.id})</span><br><span class="small">${map.description||''}</span></div>`;
+            const right = document.createElement('div');
+            const editBtn = document.createElement('button'); editBtn.textContent = 'Redigera';
+            editBtn.onclick = () => openMapEditor(map);
+            right.appendChild(editBtn);
+            if (map.type !== 'default') {
+              const delBtn = document.createElement('button'); delBtn.textContent = 'Ta bort'; delBtn.style.background = '#b33';
+              delBtn.onclick = () => { if (confirm('Ta bort denna karta?')) { window.Maps.deleteMap(map.id); renderMapsList(); mapEditSection.style.display = 'none'; } };
+              right.appendChild(delBtn);
+            }
+            row.appendChild(right);
+            mapsList.appendChild(row);
+          }
+        } catch (e) { console.error('renderMapsList error', e); }
+      }
+
+      // --- Legacy upgrade: scale old 640x480 (PAD 24) coordinate maps to new 1200x800 space ---
+      const LEGACY_OLD_W = 640, LEGACY_OLD_H = 480, LEGACY_PAD = 24;
+      const GAME_W_NEW = 1200, GAME_H_NEW = 800, PAD_NEW = 24;
+      function upgradeLegacyPoints(points){
+        if(!Array.isArray(points) || points.length < 2) return { changed:false };
+        let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+        for(const p of points){ if(p.x<minX)minX=p.x; if(p.y<minY)minY=p.y; if(p.x>maxX)maxX=p.x; if(p.y>maxY)maxY=p.y; }
+        // Heuristic: legacy if it comfortably fits inside old playfield (allow small tolerance) AND not already near new bounds
+        const tol=2;
+        const legacyRange = (maxX <= LEGACY_OLD_W + tol && maxY <= LEGACY_OLD_H + tol);
+        const alreadyNew = (maxX >= GAME_W_NEW - 100 || maxY >= GAME_H_NEW - 100); // rough guard
+        if(!legacyRange || alreadyNew) return { changed:false };
+        const srcW = LEGACY_OLD_W - 2*LEGACY_PAD;
+        const srcH = LEGACY_OLD_H - 2*LEGACY_PAD;
+        const dstW = GAME_W_NEW - 2*PAD_NEW;
+        const dstH = GAME_H_NEW - 2*PAD_NEW;
+        const scaleX = dstW / srcW;
+        const scaleY = dstH / srcH; // non-uniform to use full area
+        for(const p of points){
+          p.x = ((p.x - LEGACY_PAD) * scaleX) + PAD_NEW;
+          p.y = ((p.y - LEGACY_PAD) * scaleY) + PAD_NEW;
+        }
+        return { changed:true, scaleX, scaleY };
+      }
+      function openMapEditor(map) {
+        // Deep clone
+        editingMap = JSON.parse(JSON.stringify(map));
+        const upg = upgradeLegacyPoints(editingMap.points);
+        mapEditSection.style.display = '';
+        mapEditTitle.textContent = map.id ? 'Redigera karta' : 'Ny karta';
+        mapName.value = editingMap.name || '';
+        mapDesc.value = editingMap.description || '';
+        btnDeleteMap.style.display = (editingMap.type !== 'default') ? '' : 'none';
+        drawMapCanvas();
+        mapEditHint.textContent = upg.changed
+          ? 'Legacy‑karta uppskalad ('+upg.scaleX.toFixed(2)+'× / '+upg.scaleY.toFixed(2)+'×). Spara för att permanenta.'
+          : 'Dra punkter för att flytta, klicka för att lägga till, högerklicka för att ta bort.';
+      }
+      function closeMapEditor() {
+        editingMap = null;
+        mapEditSection.style.display = 'none';
+      }
+      if (btnNewMap) btnNewMap.onclick = () => {
+        openMapEditor(window.Maps.createEmptyMap('Ny karta'));
+      };
+      if (btnRestoreDefaults) btnRestoreDefaults.onclick = () => {
+        if (confirm('Återställ alla standardkartor? Egna kartor tas bort.')) {
+          window.Maps.restoreDefaults();
+          renderMapsList();
+          closeMapEditor();
+        }
+      };
+      if (btnCancelMap) btnCancelMap.onclick = closeMapEditor;
+      if (btnDeleteMap) btnDeleteMap.onclick = () => {
+        if (editingMap && editingMap.id && editingMap.type !== 'default') {
+          if (confirm('Ta bort denna karta?')) {
+            window.Maps.deleteMap(editingMap.id);
+            renderMapsList();
+            closeMapEditor();
+          }
+        }
+      };
+      if (btnSaveMap) btnSaveMap.onclick = () => {
+        if (!editingMap) return;
+        if (!editingMap.points || editingMap.points.length < 2) {
+          mapEditHint.textContent = 'Du måste lägga till minst två punkter på kartan!';
+          mapEditHint.style.color = '#f66';
+          return;
+        }
+        // Bedöm om punkterna redan är i spel-koordinater (inom PAD..GAME_W-PAD)
+        let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+        for(const pt of editingMap.points){
+          if(pt.x<minX)minX=pt.x; if(pt.y<minY)minY=pt.y; if(pt.x>maxX)maxX=pt.x; if(pt.y>maxY)maxY=pt.y;
+        }
+    const GAME_W=1200,GAME_H=800,PAD=24;
+        const alreadyGame = minX>=PAD-0.5 && maxX<=GAME_W-PAD+0.5 && minY>=PAD-0.5 && maxY<=GAME_H-PAD+0.5;
+        if(!alreadyGame){
+          // Skala in i spel-ytan med padding
+          const srcW = (maxX-minX)||1, srcH=(maxY-minY)||1;
+      const scale = Math.min((GAME_W-2*PAD)/srcW, (GAME_H-2*PAD)/srcH);
+          editingMap.points = editingMap.points.map(pt=>({
+            x: ((pt.x-minX)*scale)+PAD,
+            y: ((pt.y-minY)*scale)+PAD
+          }));
+        }
+        editingMap.scaled = true;
+        const safeName = mapName.value.trim() || 'Namnlös karta';
+        const safeId = safeName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+        editingMap.name = safeName;
+        editingMap.id = safeId;
+        editingMap.description = mapDesc.value.trim();
+        window.Maps.upsertMap(editingMap);
+        renderMapsList();
+        closeMapEditor();
+      };
+      // --- Graphical Path Editor ---
+      let dragIdx = null;
+      let dragOffset = {x:0, y:0};
+      // --- Coordinate helpers (keep points in game coords; scale for display) ---
+  const GAME_W=1200, GAME_H=800, PAD=24; // storage coordinate space updated to real game canvas
+  const EDIT_W=360, EDIT_H=240, EPAD=12; // editor canvas and padding (3:2 aspect)
+      const SRC_W = GAME_W-2*PAD, SRC_H = GAME_H-2*PAD;
+      const DST_W = EDIT_W-2*EPAD, DST_H = EDIT_H-2*EPAD;
+      const EDIT_SCALE = Math.min(DST_W/SRC_W, DST_H/SRC_H);
+      function scaleGameToEditor(pt){
+        return { x: ((pt.x-PAD)*EDIT_SCALE)+EPAD, y: ((pt.y-PAD)*EDIT_SCALE)+EPAD };
+      }
+      function editorToGame(x,y){
+        return { x: ((x-EPAD)/EDIT_SCALE)+PAD, y: ((y-EPAD)/EDIT_SCALE)+PAD };
+      }
+      function clampGame(pt){
+        pt.x = Math.max(PAD, Math.min(GAME_W-PAD, pt.x));
+        pt.y = Math.max(PAD, Math.min(GAME_H-PAD, pt.y));
+        return pt;
+      }
+      function drawMapCanvas() {
+        if (!mapCanvas) return;
+        const ctx = mapCanvas.getContext('2d');
+        ctx.clearRect(0,0,mapCanvas.width,mapCanvas.height);
+        if (!editingMap) return;
+        // Draw game bounds (PAD) for clarity
+        ctx.save();
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 1;
+        const padRectX = EPAD - (PAD*EDIT_SCALE - 0); // but since we scale from PAD we can just show inner area
+        // Simpler: draw editor working area background subtle (already background) so skip rect
+        ctx.restore();
+        // Draw path lines
+        const pts = editingMap.points;
+        if (pts.length) {
+          const PATH_W_GAME = 24; // could be dynamic later
+          const W = PATH_W_GAME * EDIT_SCALE;
+          const innerW = Math.max(6, W*0.55);
+          const edgeW = Math.max(4, W*0.08);
+          const p0 = scaleGameToEditor(pts[0]);
+          // Base
+          ctx.save();
+          ctx.strokeStyle='#2a2a2a'; ctx.lineCap='round'; ctx.lineWidth=W;
+          ctx.beginPath(); ctx.moveTo(p0.x, p0.y);
+          for (let i=1;i<pts.length;i++){ const p=scaleGameToEditor(pts[i]); ctx.lineTo(p.x,p.y); }
+          ctx.stroke(); ctx.restore();
+          // Inner highlight
+          ctx.save(); ctx.strokeStyle='rgba(255,255,255,0.08)'; ctx.lineCap='round'; ctx.lineWidth=innerW;
+          ctx.beginPath(); ctx.moveTo(p0.x, p0.y);
+          for (let i=1;i<pts.length;i++){ const p=scaleGameToEditor(pts[i]); ctx.lineTo(p.x,p.y); }
+          ctx.stroke(); ctx.restore();
+          // Edge accent
+          ctx.save(); ctx.strokeStyle='rgba(0,0,0,0.35)'; ctx.lineCap='round'; ctx.lineWidth=edgeW;
+          ctx.beginPath(); ctx.moveTo(p0.x, p0.y);
+          for (let i=1;i<pts.length;i++){ const p=scaleGameToEditor(pts[i]); ctx.lineTo(p.x,p.y); }
+          ctx.stroke(); ctx.restore();
+        }
+        // Draw points
+        for (let i=0; i<pts.length; i++) {
+          const p = scaleGameToEditor(pts[i]);
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 7, 0, Math.PI*2);
+          ctx.fillStyle = (i===0) ? '#6f6' : (i===pts.length-1 ? '#f66' : '#fff');
+          ctx.fill();
+          ctx.strokeStyle = '#333';
+          ctx.stroke();
+        }
+      }
+      function getMousePos(evt) {
+        const rect = mapCanvas.getBoundingClientRect();
+        return {
+          x: (evt.clientX - rect.left) * (mapCanvas.width / rect.width),
+          y: (evt.clientY - rect.top) * (mapCanvas.height / rect.height)
+        };
+      }
+      if (mapCanvas) {
+        mapCanvas.addEventListener('pointerdown', e => {
+          if (!editingMap) return;
+          const pos = getMousePos(e);
+            // Check if near an existing point (editor space)
+          for (let i=0;i<editingMap.points.length;i++){
+            const ed = scaleGameToEditor(editingMap.points[i]);
+            if(Math.hypot(ed.x-pos.x, ed.y-pos.y) < 10){
+              dragIdx = i;
+              const gp = editingMap.points[i];
+              const eg = editorToGame(pos.x,pos.y);
+              dragOffset = { x: gp.x - eg.x, y: gp.y - eg.y };
+              return;
+            }
+          }
+          // Insert a new point after nearest segment (or at end)
+          const clickG = editorToGame(pos.x,pos.y);
+          let insertIdx = editingMap.points.length;
+          let best = Infinity;
+          for(let i=0;i<editingMap.points.length-1;i++){
+            const a=editingMap.points[i], b=editingMap.points[i+1];
+            const dx=b.x-a.x, dy=b.y-a.y; const len2=dx*dx+dy*dy; let t=len2?((clickG.x-a.x)*dx + (clickG.y-a.y)*dy)/len2:0; t=Math.max(0,Math.min(1,t));
+            const px=a.x+t*dx, py=a.y+t*dy; const d=Math.hypot(clickG.x-px, clickG.y-py);
+            if(d<best){ best=d; insertIdx=i+1; }
+          }
+          editingMap.points.splice(insertIdx,0, clampGame({x:clickG.x,y:clickG.y}));
+          drawMapCanvas();
+        });
+        mapCanvas.addEventListener('pointermove', e => {
+          if (!editingMap || dragIdx === null) return;
+          const pos = getMousePos(e);
+          const g = editorToGame(pos.x,pos.y);
+          editingMap.points[dragIdx] = clampGame({ x: g.x + dragOffset.x, y: g.y + dragOffset.y });
+          drawMapCanvas();
+        });
+        mapCanvas.addEventListener('pointerup', e => { dragIdx = null; });
+        mapCanvas.addEventListener('pointerleave', e => { dragIdx = null; });
+        mapCanvas.addEventListener('contextmenu', e => {
+          e.preventDefault();
+          if (!editingMap) return;
+          const pos = getMousePos(e);
+          // Remove nearest point if close
+          let minIdx = -1, minDist = 9999;
+          for (let i=0; i<editingMap.points.length; i++) {
+            const ed = scaleGameToEditor(editingMap.points[i]);
+            const d = Math.hypot(ed.x-pos.x, ed.y-pos.y);
+            if (d < minDist) { minDist = d; minIdx = i; }
+          }
+          if (minDist < 12 && editingMap.points.length > 2) {
+            editingMap.points.splice(minIdx, 1);
+            drawMapCanvas();
+          }
+        });
+      }
+      // Initial render
+      renderMapsList();
+      console.log('Map admin UI loaded (file:// compatible)');
+    };
+  </script>
 </body>
 </html>

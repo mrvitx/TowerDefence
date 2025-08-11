@@ -194,6 +194,17 @@
   <script>
     // Lightweight Settings panel for Visuals/UI tweaks
     (function(){
+      // Map new preset names to legacy ones for bundle/fallback mode
+      var PRESET_MAP = {
+        twinLanes: 'zigzag',
+        forkMerge: 'maze',
+        overpass8: 'figure8',
+        spiralCore: 'riverMeander',
+        switchbacks: 'zigzag',
+        islands: 'riverMeander',
+        portals: 'figure8',
+        pockets: 'maze'
+      };
       var btn = document.getElementById('btnSettings'); if(!btn) return;
       var panel = document.createElement('div');
       panel.style.cssText='position:fixed;right:14px;top:64px;z-index:1000;background:var(--panel);border:1px solid var(--edge);border-radius:var(--radius);padding:10px;min-width:260px;box-shadow:0 10px 24px rgba(0,0,0,.35)';
@@ -265,27 +276,52 @@
     })();
   </script>
   <script>
-    // Robust bootstrap: use module on http/https; force fallback on file:// or on error/timeout
+  // Robust bootstrap: prefer module; fallback only if module fails (no aggressive timeout)
     (function(){
       var loaded = false;
       function loadFallback(){
         if(loaded) return; loaded = true;
+        try{ window.__TD_FALLBACK = true; }catch(_e){}
         var s = document.createElement('script');
         s.src = './dist/bundle.js';
         s.onload = function(){ window.__TD_BOOTED = true; };
         document.body.appendChild(s);
       }
-      // Force fallback when opened directly from disk
-      if(location.protocol === 'file:'){ loadFallback(); return; }
-      try{
+  // Try module first (even on file://); if it fails, fallback to bundle
+  try{
         var sm = document.createElement('script');
         sm.type = 'module';
         sm.src = './src/main.js';
         sm.onerror = loadFallback;
         document.body.appendChild(sm);
-        // Safety net: if the module didn't boot quickly, switch to fallback
-        setTimeout(function(){ if(!window.__TD_BOOTED){ loadFallback(); } }, 2000);
       }catch(e){ loadFallback(); }
+    })();
+  </script>
+  <script>
+    // If fallback (bundle) is active and a new preset is selected, show a tip overlay
+    (function(){
+      var NEW_PRESETS = new Set(['twinLanes','forkMerge','overpass8','spiralCore','switchbacks','islands','portals','pockets']);
+      function readPreset(){
+        try{
+          var raw=localStorage.getItem('td-settings-v1');
+          if(!raw) return null;
+          var d=JSON.parse(raw)||{};
+          var p = (d.MapSettings && d.MapSettings.preset) || null;
+          if(p && PRESET_MAP[p]) return PRESET_MAP[p];
+          return p;
+        }catch(_e){ return null; }
+      }
+      function banner(){
+        var host=document.createElement('div');
+        host.style.cssText='position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:2000;background:#111a;border:1px solid #333;padding:8px 12px;border-radius:10px;color:#fff;font:12px system-ui;box-shadow:0 8px 20px rgba(0,0,0,.45)';
+        host.textContent='Observera: fallback-läge (bundle) är aktivt. Nya kartor kräver modul-läge. Öppna via en enkel server.';
+        document.body.appendChild(host);
+        setTimeout(function(){ try{ host.remove(); }catch(_e){} }, 5000);
+      }
+      window.addEventListener('load', function(){
+        var p = readPreset();
+        if(window.__TD_FALLBACK && p && NEW_PRESETS.has(p)) { banner(); }
+      });
     })();
   </script>
   <script>
@@ -475,12 +511,32 @@
       const ghost = document.getElementById('buildGhost');
       const canvas = document.getElementById('canvas');
       if(!ghost || !canvas) return;
-      let active=false; let iconId='i-cannon';
-  // Block canvas interactions that would place towers unless a valid card selection is active
-  function guardPlace(ev){ if(!active){ ev.stopPropagation(); ev.preventDefault(); } }
+  let active=false; let iconId='i-cannon';
+  // Require explicit tool selection before the first placement
+  let hasToolSelected = false; // becomes true when a tower card is clicked or a numeric hotkey is pressed
+  let hinted = false; // one-time hint flag
+      // Guard: until the player selects a tower, ignore canvas clicks to prevent accidental build on fresh start
+      function guardPlace(ev){
+        if(hasToolSelected) return; // allow once a tool is chosen
+        // Only intercept genuine canvas interactions
+        ev.stopPropagation();
+        ev.preventDefault();
+        // One-time subtle hint
+        if(!hinted){
+          hinted = true;
+          try{
+            const host = document.createElement('div');
+            host.textContent = 'Välj ett torn i listan först.';
+            host.style.cssText = 'position:fixed;left:16px;bottom:16px;padding:8px 10px;background:rgba(0,0,0,.8);border:1px solid #333;border-radius:8px;color:#fff;font:12px system-ui;z-index:1100;';
+            document.body.appendChild(host);
+            setTimeout(()=>{ if(host && host.parentNode) host.remove(); }, 1800);
+          }catch(_e){}
+        }
+      }
+  canvas.addEventListener('pointerdown', guardPlace, true);
   canvas.addEventListener('mousedown', guardPlace, true);
   canvas.addEventListener('click', guardPlace, true);
-  canvas.addEventListener('pointerdown', guardPlace, true);
+  canvas.addEventListener('touchstart', guardPlace, {capture:true, passive:false});
       // When a tower card is clicked, pick up its icon
       document.getElementById('towerBtns')?.addEventListener('click', (e)=>{
         // Ignore clicks on locked overlays or locked cards entirely
@@ -493,7 +549,15 @@
   var gs = Math.round((window.__TD_ICON_SIZE || 32) * cssScale);
   ghost.innerHTML = '<svg viewBox="0 0 24 24" width="'+gs+'" height="'+gs+'" style="position:absolute;transform:translate(-50%,-50%);filter:drop-shadow(0 0 2px rgba(0,0,0,.5));fill:var(--accent);pointer-events:none"><use href="#'+iconId+'" xlink:href="#'+iconId+'"/></svg>';
         active=true; ghost.style.display='block';
+        hasToolSelected = true;
       });
+      // Numeric hotkeys (1-9) also count as selecting a tool
+      window.addEventListener('keydown', (e)=>{
+        const k = e.key;
+        if(k && /^(?:[1-9])$/.test(k)){
+          hasToolSelected = true;
+        }
+      }, {capture:true});
       window.addEventListener('contextmenu', ()=>{ active=false; ghost.style.display='none'; });
   canvas.addEventListener('click', ()=>{ if(!active) return; active=false; ghost.style.display='none'; });
       // On first load, cancel any pre-selected build state from the engine
