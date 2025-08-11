@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kaffekatten>
+  <Admin startMoney="1002" startLives="10">
+    <upgCost dmg="30" range="25" rate="35" />
+  </Admin>
+  <Settings maxSpeed="5" buildMode="paint" />
+  <Visuals showGrid="true" pathWidth="24" />
+  <Map preset="ring" difficulty="1" endless="false" />
+  <Audio muted="true" />
+  <Towers>
+
+  </Towers>
+  <timestamp>1754643556016</timestamp>
+</kaffekatten>

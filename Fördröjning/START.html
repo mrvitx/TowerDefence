@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Start • Kaffekatten TD</title>
+  <style>
+    :root{ --bg:#0f0f10; --panel:#151515; --edge:#2a2a2a; --txt:#eee; --muted:#bbb; --btn:#2d6; --btn2:#244; }
+    html,body{height:100%;margin:0;background:var(--bg);color:var(--txt);font-family:system-ui,Segoe UI,Roboto,Arial}
+  .wrap{max-width:960px;margin:40px auto;padding:0 16px}
+    .hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+    .title{font-weight:700;font-size:22px}
+  .card{background:var(--panel);border:1px solid var(--edge);border-radius:14px;padding:16px;box-shadow:0 2px 10px rgba(0,0,0,0.25)}
+    label{display:block;margin:10px 0 4px;color:#ccc}
+    input,select,button{width:100%;padding:10px;border-radius:10px;border:1px solid #333;background:#0b0b0b;color:#fff}
+    button,.btn{cursor:pointer;background:var(--btn);border:0;margin-top:12px;display:inline-block;text-align:center;text-decoration:none}
+  .grid{display:grid;grid-template-columns:2fr 1fr;gap:16px}
+  @media (max-width: 900px){ .grid{ grid-template-columns: 1fr; } }
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .links{display:flex;gap:10px;margin-top:12px}
+    .row-btns{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+    a{color:#8cf}
+  .preview{background:#0b0b0c;border:1px solid #333;border-radius:12px;padding:10px;box-shadow:inset 0 1px 0 rgba(255,255,255,0.04)}
+    .small{color:var(--muted);font-size:12px}
+    canvas{image-rendering:pixelated}
+  </style>
+  <script type="module" defer>
+  import { MapSettings, Settings } from './src/constants.js';
+  import { saveSettingsDump, loadSettingsApply } from './src/persist.js';
+  import { buildPath, path as builtPath } from './src/path.js';
+  import { rebuildBackground } from './src/render.js';
+    const qs = s=>document.querySelector(s);
+    const mapPreset = qs('#mapPreset');
+    const difficulty = qs('#difficulty');
+    const endless = qs('#endless');
+    const buildMode = qs('#buildMode');
+  // preview canvas
+    const prev = document.getElementById('mapPrev');
+    const pctx = prev.getContext('2d');
+  // Accessibility toggles
+  const cbHC = document.getElementById('colorblind');
+  const cbRM = document.getElementById('reducedMotion');
+
+    // Load existing settings to prefill
+    try{ loadSettingsApply(); }catch(e){}
+  mapPreset.value = MapSettings.preset;
+  if(mapPreset.value==='spiral'){ mapPreset.value='riverMeander'; }
+    difficulty.value = String(MapSettings.difficulty||1);
+    endless.checked = !!MapSettings.endless;
+    buildMode.value = Settings.buildMode||'paint';
+
+  function drawPreview(){
+      // very small fake canvas that mimics main path draw using the selected preset
+      const tmp = document.createElement('canvas'); tmp.width=prev.width; tmp.height=prev.height; const tctx=tmp.getContext('2d');
+      // patch MapSettings temporarily
+      const MS = MapSettings; const chosen = mapPreset.value; const keep = { preset:MS.preset, difficulty:MS.difficulty, endless:MS.endless };
+      MS.preset = chosen;
+      try{
+        // build points into global path using tmp size
+        buildPath(tmp);
+        // background draw uses its own offscreen but we can do a simplified stroke
+        tctx.clearRect(0,0,tmp.width,tmp.height);
+        tctx.fillStyle='#0b0b0c'; tctx.fillRect(0,0,tmp.width,tmp.height);
+        const path = builtPath;
+        if(path.length>1){
+          const hc = !!cbHC?.checked;
+          tctx.strokeStyle=hc?'#3a3a3a':'#2a2a2a'; tctx.lineWidth=18; tctx.lineCap='round'; tctx.beginPath(); tctx.moveTo(path[0].x,path[0].y); for(const p of path){ tctx.lineTo(p.x,p.y); } tctx.stroke();
+          tctx.strokeStyle=hc?'rgba(255,255,255,0.12)':'rgba(255,255,255,0.08)'; tctx.lineWidth=10; tctx.beginPath(); tctx.moveTo(path[0].x,path[0].y); for(const p of path){ tctx.lineTo(p.x,p.y); } tctx.stroke();
+          // Start/Goal markers
+          const start=path[0], goal=path[path.length-1]; const r=12;
+          // Start
+          tctx.beginPath(); tctx.arc(start.x,start.y,r,0,Math.PI*2); tctx.fillStyle=(cbHC?.checked?'#00c853':'#1e8e3e'); tctx.fill(); tctx.lineWidth=3; tctx.strokeStyle='#fff'; tctx.stroke();
+          tctx.fillStyle='#fff'; tctx.font='12px system-ui'; tctx.textAlign='center'; tctx.textBaseline='middle'; tctx.fillText('S', start.x, start.y+1);
+          // Goal
+          tctx.lineWidth=3; tctx.strokeStyle='#fff'; tctx.beginPath(); tctx.arc(goal.x,goal.y,r+4,0,Math.PI*2); tctx.stroke();
+          tctx.strokeStyle=(cbHC?.checked?'#ffab00':'#c5221f'); tctx.beginPath(); tctx.arc(goal.x,goal.y,r,0,Math.PI*2); tctx.stroke(); tctx.beginPath(); tctx.arc(goal.x,goal.y,Math.max(5,Math.floor(r*0.5)),0,Math.PI*2); tctx.fillStyle=(cbHC?.checked?'#ffab00':'#c5221f'); tctx.fill();
+        }
+      }catch(e){ /* ignore preview errors */ }
+      // restore
+      MS.preset = keep.preset; MS.difficulty=keep.difficulty; MS.endless=keep.endless;
+      // paint into visible preview
+      pctx.clearRect(0,0,prev.width,prev.height); pctx.drawImage(tmp,0,0);
+    }
+    drawPreview();
+    mapPreset.addEventListener('change', drawPreview);
+
+  qs('#btnStart').addEventListener('click',()=>{
+      MapSettings.preset = mapPreset.value;
+      MapSettings.difficulty = Math.max(1, Math.min(5, parseInt(difficulty.value)||1));
+      MapSettings.endless = !!endless.checked;
+      Settings.buildMode = buildMode.value;
+      // store visuals too
+  try{ const KEY='td-settings-v1'; let data={}; try{ data=JSON.parse(localStorage.getItem(KEY)||'{}')||{}; }catch(_e){ data={}; } data.Visuals = { ...(data.Visuals||{}), colorblindMode: !!cbHC?.checked, reducedMotion: !!cbRM?.checked, theme: (data.Visuals && data.Visuals.theme) || 'dim' }; data.ts=Date.now(); localStorage.setItem(KEY, JSON.stringify(data)); }catch(_e){}
+      saveSettingsDump();
+      location.href = './SPEL.HTML';
+    });
+    cbHC && cbHC.addEventListener('change', drawPreview);
+  </script>
+  <script>
+    // Non-module fallback: draw a simple map preview inline (works over file://)
+    (function(){
+      function bind(){
+        const c = document.getElementById('mapPrev'); if(!c) return; const ctx=c.getContext('2d');
+        const sel = document.getElementById('mapPreset');
+        const cbHC = document.getElementById('colorblind');
+      const TILE=32; // fits the 480x300 preview well
+      function buildPath(preset){
+        const path=[]; const COLS=Math.max(3, Math.floor(c.width/TILE)); const ROWS=Math.max(3, Math.floor(c.height/TILE));
+        const cx=(col)=>col*TILE+TILE/2, cy=(row)=>row*TILE+TILE/2;
+  if(preset==='maze'){
+          for(let i=1;i<COLS-1;i++) path.push({x:cx(i),y:cy(1)});
+          for(let r=2;r<ROWS-2;r++) path.push({x:cx(COLS-2),y:cy(r)});
+          for(let i=COLS-2;i>1;i--) path.push({x:cx(i),y:cy(ROWS-3)});
+          for(let r=ROWS-4;r>1;r--) path.push({x:cx(2),y:cy(r)});
+        } else if(preset==='figure8'){
+          for(let i=1;i<COLS-1;i++) path.push({x:cx(i),y:cy(1)});
+          for(let r=2;r<Math.floor(ROWS/2);r++) path.push({x:cx(COLS-2),y:cy(r)});
+          for(let i=COLS-2;i>1;i--) path.push({x:cx(i),y:cy(Math.floor(ROWS/2))});
+          for(let r=Math.floor(ROWS/2)+1;r<ROWS-2;r++) path.push({x:cx(2),y:cy(r)});
+          for(let i=2;i<COLS-1;i++) path.push({x:cx(i),y:cy(ROWS-2)});
+        } else if(preset==='zigzag'){
+          let ltr=true;
+          for(let r=1;r<ROWS-1;r++){
+            if(ltr){ for(let c2=1;c2<COLS-1;c2++) path.push({x:cx(c2),y:cy(r)}); }
+            else { for(let c2=COLS-2;c2>0;c2--) path.push({x:cx(c2),y:cy(r)}); }
+            if(r<ROWS-2){ const last=path[path.length-1]; path.push({x:last.x, y:cy(r+1)}); }
+            ltr=!ltr;
+          }
+        } else if(preset==='river' || preset==='spiral'){
+          const samples=140; const midY=c.height/2; const amp=Math.max(TILE*2, c.height*0.32);
+          for(let i=0;i<=samples;i++){
+            const t=i/samples; const x=t*c.width; const y=midY + Math.sin(t*Math.PI*2.2)*amp*0.8 + Math.sin(t*Math.PI*5.4)*amp*0.2; path.push({x,y});
+          }
+        } else if(preset==='riverWide'){
+          const samples=160, midY=c.height/2, amp=Math.max(TILE*2, c.height*0.42);
+          for(let i=0;i<=samples;i++){ const t=i/samples; const x=t*c.width; const y=midY + Math.sin(t*Math.PI*1.9)*amp; path.push({x,y}); }
+        } else if(preset==='riverTight'){
+          const samples=180, midY=c.height/2, amp=Math.max(TILE*2, c.height*0.25);
+          for(let i=0;i<=samples;i++){ const t=i/samples; const x=t*c.width; const y=midY + Math.sin(t*Math.PI*3.0)*amp*0.85 + Math.sin(t*Math.PI*6.0)*amp*0.18; path.push({x,y}); }
+        } else if(preset==='riverMeander'){
+          const samples=200, midY=c.height/2, amp=Math.max(TILE*2, c.height*0.36);
+          for(let i=0;i<=samples;i++){ const t=i/samples; const x=t*c.width; const y=midY + Math.sin(t*Math.PI*1.6)*amp*0.9 + Math.sin(t*Math.PI*4.0)*amp*0.28; path.push({x,y}); }
+        } else if(preset==='riverBraided'){
+          const samples=200, midY=c.height/2, amp=Math.max(TILE*2, c.height*0.34);
+          for(let i=0;i<=samples;i++){ const t=i/samples; const x=t*c.width; const y=midY + Math.sin(t*Math.PI*2.0)*amp*0.85 + Math.sin(t*Math.PI*3.2 + Math.PI/3)*amp*0.25; path.push({x,y}); }
+        } else if(preset==='random'){
+          const pts=[]; const count=10;
+          pts.push({x:TILE*0.75,y:c.height*0.25+Math.random()*c.height*0.5});
+          for(let i=0;i<count;i++) pts.push({x:Math.random()*c.width, y:TILE*0.75+Math.random()*(c.height-TILE*1.5)});
+          pts.push({x:c.width-TILE*0.75,y:c.height*0.25+Math.random()*c.height*0.5});
+          pts.sort((a,b)=>a.x-b.x); pts.forEach(p=>path.push(p));
+        } else if(preset==='clover'){
+          // four lobes around center
+          const midC=Math.floor(COLS/2), midR=Math.floor(ROWS/2);
+          const r=3; const loop=(ox,oy)=>{
+            for(let a=0;a<Math.PI*2;a+=Math.PI/6){ const x=midC+ox+Math.round(Math.cos(a)*r); const y=midR+oy+Math.round(Math.sin(a)*r); path.push({x:cx(x),y:cy(y)}); }
+          };
+          loop(-4,0); loop(4,0); loop(0,-3); loop(0,3);
+        } else if(preset==='stadium'){
+          // oval around edges with soft corners
+          const L=1,R=COLS-2,T=1,B=ROWS-2;
+          for(let c=L;c<=R;c++) path.push({x:cx(c),y:cy(T)});
+          for(let r=T+1;r<=B;r++) path.push({x:cx(R),y:cy(r)});
+          for(let c=R-1;c>=L;c--) path.push({x:cx(c),y:cy(B)});
+          for(let r=B-1;r>=T;r--) path.push({x:cx(L),y:cy(r)});
+        } else {
+          // ring
+          for(let i=0;i<COLS;i++) path.push({x:cx(i),y:cy(1)});
+          for(let r=2;r<ROWS-2;r++) path.push({x:cx(COLS-1),y:cy(r)});
+          for(let i=COLS-1;i>=0;i--) path.push({x:cx(i),y:cy(ROWS-2)});
+        }
+        return path;
+      }
+    function draw(){
+        const preset = (sel && sel.value) || 'ring';
+        const path = buildPath(preset);
+        ctx.clearRect(0,0,c.width,c.height);
+        ctx.fillStyle='#0b0b0c'; ctx.fillRect(0,0,c.width,c.height);
+        if(path.length>1){
+      const hc = !!cbHC?.checked;
+      ctx.strokeStyle=hc?'#3a3a3a':'#2a2a2a'; ctx.lineWidth=18; ctx.lineCap='round'; ctx.beginPath(); ctx.moveTo(path[0].x,path[0].y); for(const p of path){ ctx.lineTo(p.x,p.y); } ctx.stroke();
+      ctx.strokeStyle=hc?'rgba(255,255,255,0.12)':'rgba(255,255,255,0.08)'; ctx.lineWidth=10; ctx.beginPath(); ctx.moveTo(path[0].x,path[0].y); for(const p of path){ ctx.lineTo(p.x,p.y); } ctx.stroke();
+          // Start/Goal markers
+          const start=path[0], goal=path[path.length-1]; const r=12;
+      ctx.beginPath(); ctx.arc(start.x,start.y,r,0,Math.PI*2); ctx.fillStyle=(hc?'#00c853':'#1e8e3e'); ctx.fill(); ctx.lineWidth=3; ctx.strokeStyle='#fff'; ctx.stroke();
+          ctx.fillStyle='#fff'; ctx.font='12px system-ui'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('S', start.x, start.y+1);
+          ctx.lineWidth=3; ctx.strokeStyle='#fff'; ctx.beginPath(); ctx.arc(goal.x,goal.y,r+4,0,Math.PI*2); ctx.stroke();
+      ctx.strokeStyle=(hc?'#ffab00':'#c5221f'); ctx.beginPath(); ctx.arc(goal.x,goal.y,r,0,Math.PI*2); ctx.stroke(); ctx.beginPath(); ctx.arc(goal.x,goal.y,Math.max(5,Math.floor(r*0.5)),0,Math.PI*2); ctx.fillStyle=(hc?'#ffab00':'#c5221f'); ctx.fill();
+        }
+      }
+      // If the module didn't draw anything, render fallback preview
+      function maybeDraw(){ try{ const a=ctx.getImageData(0,0,1,1).data[3]; if(a===0) draw(); }catch(e){ draw(); } }
+      setTimeout(maybeDraw, 300);
+  sel && sel.addEventListener('change', draw);
+  cbHC && cbHC.addEventListener('change', draw);
+      window.addEventListener('resize', draw);
+      }
+      if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', bind); else bind();
+    })();
+  </script>
+  <script>
+    // Fallback: bind Start after DOM is ready (works over file:// even without modules)
+    (function(){
+      const qs = s=>document.querySelector(s);
+  function bind(){
+        const btn = qs('#btnStart');
+        if(!btn) return;
+        btn.addEventListener('click', ()=>{
+          try{
+            const mapPreset = qs('#mapPreset')?.value || 'ring';
+            const diff = Math.max(1, Math.min(5, parseInt(qs('#difficulty')?.value)||1));
+            const endless = !!qs('#endless')?.checked;
+            const buildMode = qs('#buildMode')?.value || 'paint';
+    const colorblind = !!qs('#colorblind')?.checked;
+    const reducedMotion = !!qs('#reducedMotion')?.checked;
+            const KEY='td-settings-v1';
+            let data={};
+            try{ data = JSON.parse(localStorage.getItem(KEY)||'{}')||{}; }catch(err){ data={}; }
+            data.Settings = { ...(data.Settings||{}), buildMode, maxSpeed: (data.Settings && data.Settings.maxSpeed) || 5 };
+    data.MapSettings = { ...(data.MapSettings||{}), preset: mapPreset, difficulty: diff, endless };
+            data.Visuals = { ...(data.Visuals||{}), colorblindMode: colorblind, reducedMotion, theme: (data.Visuals && data.Visuals.theme) || 'dim' };
+            data.ts = Date.now();
+            localStorage.setItem(KEY, JSON.stringify(data));
+          }catch(err){ /* ignore and still navigate */ }
+          location.href = './SPEL.HTML';
+        });
+      }
+      if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind); else bind();
+    })();
+  </script>
+  <script>
+    // START: XML import/export (file:// friendly)
+    (function(){
+      const KEY='td-settings-v1';
+      function ensure(d){ d=d||{}; d.Admin=d.Admin||{startMoney:100,startLives:10,upgCost:{dmg:30,range:25,rate:35}}; d.Settings=d.Settings||{maxSpeed:5,buildMode:'paint'}; d.Visuals=d.Visuals||{showGrid:true,pathWidth:24}; d.MapSettings=d.MapSettings||{preset:'ring',difficulty:1,endless:false}; d.Audio=d.Audio||{muted:true}; d.TOWER_TYPES=d.TOWER_TYPES||{}; return d; }
+      function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;'); }
+      function toXML(d){ d=ensure(d); const t=Object.keys(d.TOWER_TYPES).map(id=>{const def=d.TOWER_TYPES[id]; return `    <Tower id="${esc(def.id||id)}" label="${esc(def.label||id)}" cost="${def.cost||50}" range="${def.range||80}" dmg="${def.dmg||5}" fireRate="${def.fireRate||1}" color="${esc(def.color||'#ccc')}" sellFactor="${def.sellFactor==null?0.7:def.sellFactor}"${def.aoe?` aoe="${def.aoe}"`:''}${def.slow?` slow="${def.slow}"`:''}${def.slowTime?` slowTime="${def.slowTime}"`:''} />`;}).join('\n'); return `<?xml version="1.0" encoding="UTF-8"?>\n<kaffekatten>\n  <Admin startMoney="${d.Admin.startMoney}" startLives="${d.Admin.startLives}">\n    <upgCost dmg="${d.Admin.upgCost.dmg}" range="${d.Admin.upgCost.range}" rate="${d.Admin.upgCost.rate}" />\n  </Admin>\n  <Settings maxSpeed="${d.Settings.maxSpeed}" buildMode="${esc(d.Settings.buildMode)}" />\n  <Visuals showGrid="${!!d.Visuals.showGrid}" pathWidth="${d.Visuals.pathWidth}" />\n  <Map preset="${esc(d.MapSettings.preset)}" difficulty="${d.MapSettings.difficulty}" endless="${!!d.MapSettings.endless}" />\n  <Audio muted="${!!d.Audio.muted}" />\n  <Towers>\n${t}\n  </Towers>\n  <timestamp>${Date.now()}</timestamp>\n</kaffekatten>`; }
+      function fromXML(text,d){ const parser=new DOMParser(); const doc=parser.parseFromString(text,'application/xml'); if(doc.querySelector('parsererror')) return null; d=ensure(d); const get=s=>doc.querySelector(s); const adminEl=get('kaffekatten > Admin'); if(adminEl){ const sm=parseInt(adminEl.getAttribute('startMoney')); const sl=parseInt(adminEl.getAttribute('startLives')); if(!isNaN(sm)) d.Admin.startMoney=sm; if(!isNaN(sl)) d.Admin.startLives=sl; const upg=get('kaffekatten > Admin > upgCost'); if(upg){ const dd=parseInt(upg.getAttribute('dmg')); const rr=parseInt(upg.getAttribute('range')); const rt=parseInt(upg.getAttribute('rate')); if(!isNaN(dd)) d.Admin.upgCost.dmg=dd; if(!isNaN(rr)) d.Admin.upgCost.range=rr; if(!isNaN(rt)) d.Admin.upgCost.rate=rt; } } const setEl=get('kaffekatten > Settings'); if(setEl){ const ms=parseFloat(setEl.getAttribute('maxSpeed')); const bm=setEl.getAttribute('buildMode'); if(!isNaN(ms)) d.Settings.maxSpeed=ms; if(bm) d.Settings.buildMode=bm; } const visEl=get('kaffekatten > Visuals'); if(visEl){ d.Visuals.showGrid = visEl.getAttribute('showGrid')==='true'; const pw=parseInt(visEl.getAttribute('pathWidth')); if(!isNaN(pw)) d.Visuals.pathWidth=pw; } const mapEl=get('kaffekatten > Map'); if(mapEl){ const pr=mapEl.getAttribute('preset'); const df=parseInt(mapEl.getAttribute('difficulty')); const en=mapEl.getAttribute('endless')==='true'; if(pr) d.MapSettings.preset=pr; if(!isNaN(df)) d.MapSettings.difficulty=df; d.MapSettings.endless=en; } const audEl=get('kaffekatten > Audio'); if(audEl){ d.Audio.muted = audEl.getAttribute('muted')==='true'; } const towers=doc.querySelectorAll('kaffekatten > Towers > Tower'); towers.forEach(el=>{ const id=el.getAttribute('id'); if(!id) return; const ni=n=>{ const v=parseFloat(el.getAttribute(n)); return isNaN(v)?undefined:v; }; const str=n=>el.getAttribute(n); d.TOWER_TYPES[id]={ id, label:str('label')||id, cost:ni('cost')??50, range:ni('range')??80, dmg:ni('dmg')??5, fireRate:ni('fireRate')??1, color:str('color')||'#ccc', sellFactor:ni('sellFactor')??0.7, aoe:ni('aoe'), slow:ni('slow'), slowTime:ni('slowTime') }; }); return d; }
+      function load(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}')||{}; }catch(e){ return {}; } }
+      function save(d){ try{ d.ts=Date.now(); localStorage.setItem(KEY, JSON.stringify(d)); return true; }catch(e){ return false; } }
+
+      function bind(){
+        const btnExp=document.getElementById('btnExportXML');
+        const btnImp=document.getElementById('btnImportXML');
+        const file=document.getElementById('xmlFile');
+        btnExp && btnExp.addEventListener('click',()=>{ const xml=toXML(load()); const blob=new Blob([xml],{type:'application/xml'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='kaffekatten-settings.xml'; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },0); });
+        btnImp && btnImp.addEventListener('click',()=> file && file.click());
+        file && file.addEventListener('change',()=>{ const f=file.files && file.files[0]; if(!f) return; const rdr=new FileReader(); rdr.onload=()=>{ const txt=String(rdr.result||''); const d=fromXML(txt, load()); if(d){ save(d); alert('XML importerat.'); } else alert('Ogiltig XML.'); }; rdr.readAsText(f); });
+      }
+      if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', bind); else bind();
+    })();
+  </script>
+  <script>
+    // Quick accent palette chips (optional)
+    (function(){
+      function bind(){
+        var host = document.getElementById('paletteChips'); if(!host) return;
+        var colors = ['#2d6','#3b82f6','#e91e63','#f59e0b','#10b981','#00e5ff'];
+        host.innerHTML = '';
+        colors.forEach(function(col){
+          var b=document.createElement('button'); b.type='button'; b.textContent=' '; b.style.width='28px'; b.style.height='28px'; b.style.borderRadius='6px'; b.style.border='1px solid #333'; b.style.background=col; b.style.cursor='pointer'; b.title=col; b.style.marginRight='6px';
+          b.onclick=function(){ try{ var KEY='td-settings-v1'; var data={}; try{ data=JSON.parse(localStorage.getItem(KEY)||'{}')||{}; }catch(_e){ data={}; } data.Visuals = { ...(data.Visuals||{}), _accent: col, theme: 'custom' }; data.ts=Date.now(); localStorage.setItem(KEY, JSON.stringify(data)); alert('Accent uppdaterad. Starta spelet för att se ändringen.'); }catch(_e){} };
+          host.appendChild(b);
+        });
+      }
+      if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', bind); else bind();
+    })();
+  </script>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hdr"><div class="title">Kaffekatten TD</div><div class="small">Alpha</div></div>
+    <div class="grid">
+      <div class="card">
+        <label>Karta</label>
+        <select id="mapPreset">
+        <option value="ring">Outer Ring</option>
+        <option value="maze">Maze</option>
+        <option value="figure8">Figure Eight</option>
+  <option value="zigzag">Zigzag Columns</option>
+  <option value="river">River S‑curve</option>
+  <option value="riverWide">River S‑curve (Wide)</option>
+  <option value="riverTight">River S‑curve (Tight)</option>
+  <option value="riverMeander">River Meander</option>
+  <option value="riverBraided">River Braided</option>
+  <option value="riverDelta">River Delta</option>
+  <option value="random">Random Walk</option>
+  <option value="clover">Clover</option>
+  <option value="stadium">Stadium</option>
+        </select>
+        <div class="row">
+          <div>
+            <label>Svårighet (1–5)</label>
+            <input id="difficulty" type="number" min="1" max="5" value="1" />
+          </div>
+          <div>
+            <label>&nbsp;</label>
+            <label style="display:flex;gap:8px;align-items:center"><input id="endless" type="checkbox" /> Endless</label>
+          </div>
+        </div>
+        <label>Bygg‑läge</label>
+        <select id="buildMode">
+          <option value="paint">Paint</option>
+          <option value="single">Single</option>
+        </select>
+        <div class="row" style="margin-top:8px">
+          <label style="display:flex;gap:8px;align-items:center"><input id="colorblind" type="checkbox" /> Högkontrast (färgblind)</label>
+          <label style="display:flex;gap:8px;align-items:center"><input id="reducedMotion" type="checkbox" /> Minska rörelse</label>
+        </div>
+    <div class="small" style="margin-top:8px">Snabbt val: accent</div>
+    <div id="paletteChips" class="row-btns" style="margin-top:4px"></div>
+        <a id="btnStart" class="btn" href="./SPEL.HTML">Starta spelet</a>
+        <div class="links"><a href="./ADMIN.html">Admin</a></div>
+        <div class="row-btns">
+          <button id="btnExportXML" type="button">Exportera XML</button>
+          <button id="btnImportXML" type="button">Importera XML</button>
+          <input id="xmlFile" type="file" accept=".xml,application/xml" style="display:none" />
+        </div>
+        <div class="small" style="margin-top:8px">Tips: När spelet startat kan du hålla musen över knapparna för att se deras snabbkommandon.</div>
+      </div>
+      <div class="card preview">
+        <div class="small" style="margin-bottom:6px">Förhandsvisning</div>
+        <canvas id="mapPrev" width="480" height="300"></canvas>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
