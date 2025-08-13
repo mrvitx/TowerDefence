@@ -118,6 +118,34 @@ function decorateButton(btn, iconId, label){
   return api;
 }
 
+// Reusable: adds a small price pill to a button if missing and returns it
+function ensurePriceBadge(btn){
+  if(!btn) return null;
+  let p = btn.querySelector && btn.querySelector('.price');
+  if(!p){
+    p = document.createElement('span');
+    p.className = 'price';
+    p.style.marginLeft = '8px';
+    p.style.padding = '0 8px';
+    p.style.borderRadius = '12px';
+    p.style.background = 'rgba(0,0,0,0.35)';
+    p.style.border = '1px solid rgba(255,255,255,0.35)';
+    p.style.color = '#fff';
+    p.style.fontWeight = '700';
+    p.style.fontSize = '12px';
+    p.style.lineHeight = '20px';
+    p.style.height = '20px';
+    p.style.display = 'inline-flex';
+    p.style.alignItems = 'center';
+    p.style.justifyContent = 'center';
+    p.style.minWidth = '26px';
+    p.style.whiteSpace = 'nowrap';
+    p.style.verticalAlign = 'middle';
+    try{ btn.appendChild(p); btn.style.overflow = 'visible'; }catch(_e){}
+  }
+  return p;
+}
+
 const towerBtns = document.getElementById('towerBtns');
 const selInfo = document.getElementById('selInfo');
 const upgControls = document.getElementById('upgControls');
@@ -298,35 +326,6 @@ function ensureUpgPopup(){
   decorateButton(ppD, 'i-plus', 'Köp');
   decorateButton(ppR, 'i-plus', 'Köp');
   decorateButton(ppRt, 'i-plus', 'Köp');
-  // Price badge helper
-  const ensurePriceBadge = (btn)=>{
-    if(!btn) return null;
-    let p = btn.querySelector('.price');
-    if(!p){
-      p = document.createElement('span');
-      p.className = 'price';
-      p.style.marginLeft = '8px';
-      p.style.padding = '0 8px';
-      p.style.borderRadius = '12px';
-      p.style.background = 'rgba(0,0,0,0.35)';
-      p.style.border = '1px solid rgba(255,255,255,0.35)';
-      p.style.color = '#fff';
-      p.style.fontWeight = '700';
-      p.style.fontSize = '12px';
-      p.style.lineHeight = '20px';
-      p.style.height = '20px';
-      p.style.display = 'inline-flex';
-      p.style.alignItems = 'center';
-      p.style.justifyContent = 'center';
-      p.style.minWidth = '26px';
-      p.style.whiteSpace = 'nowrap';
-      p.style.verticalAlign = 'middle';
-      btn.appendChild(p);
-    }
-    // Ensure button doesn't clip the pill
-    try{ btn.style.overflow = 'visible'; }catch(_e){}
-    return p;
-  };
   ensurePriceBadge(ppD);
   ensurePriceBadge(ppR);
   ensurePriceBadge(ppRt);

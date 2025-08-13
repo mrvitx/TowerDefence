@@ -5,68 +5,147 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Admin • Kaffekatten TD</title>
   <style>
-    html,body{height:100%;margin:0;background:#0f0f10;color:#eee;font-family:system-ui,Segoe UI,Roboto,Arial}
-    .wrap{max-width:960px;margin:24px auto;padding:0 14px}
-    .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-    .panel{background:#151515;padding:14px;border-radius:10px}
-    input,select,button{padding:8px;border-radius:6px;border:1px solid #333;background:#0b0b0b;color:#fff}
+  :root{
+      --bg:#0f0f10; --panel:#151515; --panel-alt:#101010; --text:#eee; --muted:#aaa;
+      --accent:#22c55e; --accent-2:#16a34a; --border:#2a2a2a; --btn:#2d6;
+      --shadow: 0 6px 18px rgba(0,0,0,0.35);
+    }
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:system-ui,Segoe UI,Roboto,Arial}
+  .wrap{max-width:1200px;margin:24px auto;padding:0 18px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;justify-content:center}
+  .panel{background:var(--panel);padding:14px;border-radius:10px;box-shadow:var(--shadow)}
+  input,select,button{padding:9px;border-radius:8px;border:1px solid var(--border);background:#0b0b0b;color:#fff;font-size:14px}
     input,select{width:100%;margin:6px 0}
-    button{cursor:pointer;background:#2d6;border:0}
-    h2,h3{margin:6px 0 10px 0}
-    .row{display:flex;gap:8px;align-items:center}
-    .footer{margin-top:18px;display:flex;gap:8px}
+    button{cursor:pointer;background:var(--accent);border:0;transition:transform .06s ease, filter .12s ease}
+    button:hover{filter:brightness(1.05)}
+    button:active{transform:translateY(1px)}
+    .topTab,.tabBtn{background:#2a2a2a}
+    .topTab.active,.tabBtn.active{background:var(--accent)}
+  h2{margin:6px 0 14px 0; font-size:26px}
+  h3{margin:6px 0 10px 0; font-size:17px}
+    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .footer{margin-top:18px;display:flex;gap:10px}
     a{color:#8cf}
+    /* List rows hover */
+    #mapsList .row{transition:background .12s ease}
+    #mapsList .row:hover{background:#1e1e1e !important}
+  /* Auth overlay */
+  .authOverlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;z-index:9999}
+  .authCard{background:#141414;border:1px solid #2a2a2a;border-radius:12px;padding:16px;min-width:260px;box-shadow:0 10px 30px rgba(0,0,0,0.45)}
+  .authCard h3{margin:4px 0 10px 0}
+  .authCard .row{display:flex;gap:8px}
+  /* Designer layout */
+  .designerArea{display:flex; gap:12px; align-items:flex-start}
+  .canvasCol{flex:1; min-width:0}
+  .buildPanel{width:180px; background:var(--panel-alt); border:1px solid var(--border); border-radius:10px; padding:10px; position:sticky; top:12px; box-shadow:var(--shadow)}
+  .buildPanel h4{margin:0 0 8px 0; font-size:16px}
+  .buildList{display:grid; grid-template-columns:1fr; gap:8px}
+  .buildItem{display:flex; gap:8px; align-items:center; padding:8px; background:#161616; border:1px solid #222; border-radius:8px; cursor:grab; user-select:none}
+  .buildItem:hover{background:#1b1b1b}
+  .buildItem.active{outline:2px solid var(--accent)}
+  .buildIcon{width:28px; height:28px; display:grid; place-items:center; background:#0f0f0f; border-radius:6px; border:1px solid #222}
+  .tinyHint{font-size:11px; color:#9aa}
+  /* Towers UI */
+  .towerToolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+  .towerList{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+  .towerCard{background:#131313;border:1px solid var(--border);border-radius:10px;padding:10px;box-shadow:var(--shadow)}
+  .towerHead{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  .swatch{width:18px;height:18px;border-radius:4px;border:1px solid #333}
+  .badge{font-size:11px;padding:2px 6px;border:1px solid #2a2a2a;border-radius:999px;background:#1a1a1a;color:#9aa}
+  .towerGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .towerGrid label{font-size:11px;color:#9aa;display:grid;grid-template-columns:max-content minmax(0,1fr);align-items:center;column-gap:8px}
+  .towerGrid input{width:100%;min-width:0;box-sizing:border-box;padding:6px;border-radius:6px;border:1px solid #2a2a2a;background:#0e0e0e;color:#eee}
+  .towerFooter{display:flex;gap:8px;margin-top:8px}
+  details.adv{margin-top:6px}
+  details.adv summary{cursor:pointer;color:#bbb}
+  .pill{padding:4px 8px;border-radius:999px;background:#1a1a1a;border:1px solid #2a2a2a;color:#9aa;font-size:11px}
   </style>
 </head>
 <body>
   <div class="wrap">
     <h2>Admin • Kaffekatten TD</h2>
-    <div class="grid" style="grid-template-columns:1fr 1fr 1fr; gap:16px">
-      <div class="panel">
-        <h3>Spelinställningar</h3>
-        <label>Startpengar</label>
-        <input id="adminStartMoney" type="number" value="100" />
-        <label>Startliv</label>
-        <input id="adminStartLives" type="number" value="10" />
+    <div id="authOverlay" class="authOverlay" style="display:none">
+      <div class="authCard">
+        <h3>Admin‑inloggning</h3>
+        <input id="authPw" type="password" placeholder="Lösenord" />
+        <div class="row" style="margin-top:8px">
+          <button id="btnAuthLogin">Logga in</button>
+          <a href="./START.html" style="align-self:center">Tillbaka</a>
+        </div>
+        <div id="authMsg" style="margin-top:8px;color:#aaa;font-size:12px"></div>
+      </div>
+    </div>
+    <div class="row" style="gap:8px;margin-bottom:8px;justify-content:center">
+      <button class="topTab active" data-show="colSettings">⚙️ Inställningar</button>
+      <button class="topTab" data-show="colTowers">🗼 Torn</button>
+      <button class="topTab" data-show="colMaps">🗺️ Kartor</button>
+    </div>
+    <div class="grid" id="mainGrid" style="grid-template-columns:1fr; gap:16px; justify-content:center">
+      <div class="panel colSettings">
+        <h3>⚙️ Spelinställningar</h3>
         <label>Max hastighet (1-5)</label>
         <input id="adminMaxSpeed" type="number" value="5" />
-        <label>Visa rutnät</label>
-        <select id="uiShowGrid"><option value="1">Ja</option><option value="0">Nej</option></select>
-        <label>Vägbredd</label>
-        <input id="uiPathWidth" type="number" value="24" min="8" max="64" />
-          <label>Karta</label>
-          <select id="mapPreset"><!-- Options populated by JS --></select>
-          <label>Svårighet (1-5)</label>
-          <input id="mapDifficulty" type="number" value="1" min="1" max="5" />
-          <label><input id="endless" type="checkbox" /> Endless</label>
-          <label>Bygg-läge</label>
-          <select id="buildMode">
-            <option value="paint">Paint</option>
-            <option value="single">Single</option>
-          </select>
-          <label><input id="mute" type="checkbox" /> Mute</label>
+  <label>Visa rutnät</label>
+  <select id="uiShowGrid"><option value="1">Ja</option><option value="0">Nej</option></select>
+  <label><input id="showDmgNums" type="checkbox" /> Visa skadenummer</label>
+  <label><input id="reducedFX" type="checkbox" /> Färre effekter (sparläge)</label>
+        <label>Bygg-läge</label>
+        <select id="buildMode">
+          <option value="paint">Paint</option>
+          <option value="single">Single</option>
+        </select>
+        
+        <label><input id="mute" type="checkbox" /> Mute</label>
         <div class="footer">
           <button id="btnSave">Spara inställningar</button>
-          <a href="./SPEL.HTML">Tillbaka till spelet</a>
+          <a href="./START.html">Till start</a>
         </div>
         <div class="footer">
           <button id="btnExportXML">Exportera som XML</button>
           <button id="btnImportXML">Importera XML</button>
           <input id="xmlFile" type="file" accept=".xml,application/xml" style="display:none" />
         </div>
-      </div>
-      <div class="panel">
-        <h3>Torn</h3>
-        <div id="towersList" style="display:flex;flex-direction:column;gap:6px"></div>
         <hr>
-        <div class="row"><input id="newName" placeholder="namn" /></div>
-        <div class="row"><input id="newCost" type="number" placeholder="pris" value="80" /><input id="newRange" type="number" placeholder="räckvidd" value="90" /></div>
-        <div class="row"><input id="newDmg" type="number" placeholder="skada" value="8" /><input id="newRate" type="number" placeholder="eldhast (s)" value="1" /></div>
-        <div class="row"><input id="newColor" placeholder="#rrggbb" value="#ffb86b" /></div>
+        <h3>🔒 Admin‑säkerhet</h3>
+        <div class="row"><input id="newAdminPass" type="password" placeholder="Nytt lösenord" /><input id="newAdminPass2" type="password" placeholder="Bekräfta" /></div>
+        <div class="footer">
+          <button id="btnSaveAdminPass">Spara lösenord</button>
+          <button id="btnClearAdminPass" style="background:#b33">Ta bort lösenord</button>
+        </div>
+        <div class="small" id="adminPassHint" style="margin-top:6px;color:#aaa"></div>
+      </div>
+  <div class="panel colTowers" style="display:none">
+        <h3>🗼 Torn</h3>
+        <div class="towerToolbar">
+          <input id="towerSearch" placeholder="Sök (namn/id)" style="flex:1" />
+          <span class="pill" id="towerCount">0 torn</span>
+          <button id="btnExportTowers" title="Exportera Towers som XML">Exportera</button>
+          <button id="btnImportTowers" title="Importera Towers från XML">Importera</button>
+          <input id="towerXmlFile" type="file" accept=".xml,application/xml" style="display:none" />
+        </div>
+        <div id="towersList" class="towerList"></div>
+        <hr>
+        <h4>➕ Lägg till nytt torn</h4>
+        <div class="row">
+          <input id="newId" placeholder="id (a‑z, 0‑9, -)" title="Unikt id" />
+          <input id="newName" placeholder="Tornnamn" title="Visningsnamn" />
+        </div>
+        <div class="row">
+          <input id="newCost" type="number" placeholder="Pris" value="80" min="0" />
+          <input id="newRange" type="number" placeholder="Räckvidd (px)" value="90" min="0" />
+        </div>
+        <div class="row">
+          <input id="newDmg" type="number" placeholder="Skada" value="8" min="0" step="0.1" />
+          <input id="newRate" type="number" placeholder="Eldhast (sek)" value="1" min="0.05" step="0.05" />
+        </div>
+        <div class="row">
+          <input id="newColor" type="color" value="#ffb86b" title="Färg" />
+          <input id="newSell" type="number" placeholder="Sälj‑faktor (0–1)" value="0.7" min="0" max="1" step="0.05" />
+        </div>
         <button id="btnAddTower">Lägg till torn</button>
       </div>
-      <div class="panel" id="mapsPanel">
-        <h3>Kartor</h3>
+  <div class="panel colMaps" id="mapsPanel" style="display:none">
+        <h3>🗺️ Kartor</h3>
         <div id="mapsList" style="display:flex;flex-direction:column;gap:6px"></div>
         <div class="footer">
           <button id="btnNewMap">Ny karta</button>
@@ -74,10 +153,179 @@
         </div>
         <div id="mapEditSection" style="margin-top:14px;display:none">
           <h4 id="mapEditTitle">Redigera karta</h4>
-          <input id="mapName" placeholder="Namn" style="width:100%;margin-bottom:6px" />
+          <div class="row" style="gap:8px;margin-bottom:6px">
+            <input id="mapName" placeholder="Namn" style="width:100%" />
+            <button id="btnAutoName" title="Auto‑generera namn">Auto</button>
+          </div>
+          <div class="row" style="gap:8px;margin-bottom:6px">
+            <input id="mapId" placeholder="id" style="width:100%" />
+            <button id="btnAutoId" title="Auto‑generera id">Auto‑ID</button>
+            <button id="btnSmartDesc" title="Föreslå beskrivning">Smart beskrivning</button>
+          </div>
           <textarea id="mapDesc" placeholder="Beskrivning" style="width:100%;min-height:36px;margin-bottom:6px"></textarea>
-          <div style="margin-bottom:6px">Redigera väg grafiskt:</div>
-          <canvas id="mapCanvas" width="360" height="240" style="background:#222;border-radius:8px;display:block;margin-bottom:8px;touch-action:none;aspect-ratio:3/2"></canvas>
+          <div class="row" style="gap:8px;margin:8px 0">
+            <div class="row" style="gap:8px">
+              <button class="tabBtn active" data-tab="tabGen">⚡ Generator</button>
+              <button class="tabBtn" data-tab="tabTrans">✂️ Transform</button>
+              <button class="tabBtn" data-tab="tabGeo">📐 Geometri</button>
+              <button class="tabBtn" data-tab="tabClipboard">📋 Urklipp</button>
+              <button class="tabBtn" data-tab="tabMapCfg">⚙️ Inställningar</button>
+              <button class="tabBtn" data-tab="tabInfo">ℹ️ Info</button>
+            </div>
+          </div>
+          <div id="tabMapCfg" class="panel" style="display:none;background:#101010;margin-bottom:8px">
+            <div class="row" style="flex-wrap:wrap;gap:8px;margin:0">
+              <strong>Kartinställningar (per karta):</strong>
+              <label>Startpengar</label><input id="mapStartMoney" type="number" value="100" style="width:120px"/>
+              <label>Startliv</label><input id="mapStartLives" type="number" value="10" style="width:120px"/>
+              <label>Vägbredd</label><input id="mapPathWidth" type="number" value="24" min="8" max="64" style="width:120px"/>
+              <label>Svårighet (1-5)</label><input id="mapDifficulty" type="number" value="1" min="1" max="5" style="width:120px"/>
+              <label><input id="mapEndless" type="checkbox"/> Endless</label>
+              <label>Våglängd (sek)</label><input id="mapRoundSeconds" type="number" value="25" style="width:120px"/>
+              <label>Max vågor</label><input id="mapMaxWaves" type="number" value="25" style="width:120px"/>
+            </div>
+            <hr style="border:none;border-top:1px solid #222;margin:10px 8px"/>
+            <div class="row" style="flex-wrap:wrap;gap:8px;margin:0">
+              <strong>Miljö:</strong>
+              <label><input id="envMatrixOn" type="checkbox"/> Matrix‑tema</label>
+              <label>Tint</label><input id="envMatrixTint" type="color" value="#113311"/>
+              <label><input id="envMatrixRain" type="checkbox"/> Matrix‑regn</label>
+              <span style="font-size:12px;color:#aaa">(Broar läggs till under Generator → Lägg till bro)</span>
+            </div>
+          </div>
+          <div id="mapDesigner">
+          <!-- Ruttverktyg flyttat till byggpanelen -->
+          <div id="tabGen" class="panel" style="background:#101010;margin-bottom:8px">
+          <div id="mapGenTools" class="row" style="flex-wrap:wrap;gap:8px;margin:0">
+            <strong>Generator:</strong>
+            <label for="genPreset">Preset</label>
+            <select id="genPreset">
+              <option value="default">Diagonal</option>
+              <option value="riverNoise">River Noise</option>
+              <option value="aStarSnake">A* Snake</option>
+              <option value="spiral">Spiral</option>
+              <option value="figure8">Figure‑8</option>
+              <option value="zigzag">Zigzag</option>
+              <option value="sBends">S‑kurvor</option>
+              <option value="bezier">Bezier</option>
+              <option value="heart">Heart</option>
+              <option value="rose">Rose</option>
+              <option value="ring">Ring</option>
+              <option value="maze">Maze</option>
+            </select>
+            <label for="genSeed">Seed</label>
+            <input id="genSeed" type="number" value="0" style="width:100px"/>
+            <button id="btnRandSeed" title="Slumpa seed">🎲</button>
+            <label for="genComplexity">Complexity</label>
+            <input id="genComplexity" type="number" value="2" min="1" max="5" style="width:80px"/>
+            <label for="genTargetDiff">Mål‑svårighet (endast generatorn)</label>
+            <input id="genTargetDiff" type="number" value="5" min="1" max="10" step="0.5" style="width:90px"/>
+            <button id="btnGenRun">Generera</button>
+            <button id="btnAutoBuild" title="Generera + optimera i ett steg">Auto‑bygg</button>
+            <button id="btnBuildToDiff" title="Generera tills svårighet≈mål">Bygg→svårighet</button>
+            <span style="margin-left:12px;color:#aaa;font-size:12px">Använd Byggpanel → Ny startsträcka för fler rutter</span>
+            <span style="margin-left:auto"></span>
+            <button id="btnBridgeAdd" title="Lägg till bro">Lägg till bro</button>
+            <span style="margin-left:auto"></span>
+            <button id="btnUndoTop" title="Ångra" style="background:#666">↶</button>
+            <button id="btnRedoTop" title="Gör om" style="background:#666">↷</button>
+          </div>
+          </div>
+          <div id="tabTrans" class="panel" style="display:none;background:#101010;margin-bottom:8px">
+          <div id="mapTransformTools" class="row" style="flex-wrap:wrap;gap:8px;margin:0">
+            <strong>Transform:</strong>
+            <label for="trEps">Epsilon</label>
+            <input id="trEps" type="number" value="8" style="width:70px"/>
+            <button id="btnSimplify">Förenkla</button>
+            <label for="trSmoothIt">Smooth it</label>
+            <input id="trSmoothIt" type="number" value="2" min="1" max="6" style="width:70px"/>
+            <button id="btnSmooth">Jämna</button>
+            <label for="trStep">Steg</label>
+            <input id="trStep" type="number" value="40" style="width:70px"/>
+            <button id="btnEqualize">Utjämna</button>
+            <label for="trJitterAmt">Jitter</label>
+            <input id="trJitterAmt" type="number" value="6" style="width:70px"/>
+            <button id="btnJitter">Jitter</button>
+            <label for="trWarpAmt">Warp</label>
+            <input id="trWarpAmt" type="number" value="8" style="width:70px"/>
+            <button id="btnWarp">Warp</button>
+            <button id="btnAutoOptimize" title="Optimera nuvarande väg med valda parametrar">Auto‑optimera</button>
+            <button id="btnReverse">Vänd</button>
+            <button id="btnClose">Stäng slinga</button>
+            <span style="margin-left:auto"></span>
+            <label><input id="snapGrid" type="checkbox" /> Snäpp till rutnät</label>
+            <label>Grid</label>
+            <input id="gridSize" type="number" min="1" max="200" step="1" value="2" title="Rutnät-storlek (px)" style="width:80px" />
+            <button id="gridDec" title="Mindre rutor" style="background:#444;padding:6px 8px">−</button>
+            <button id="gridInc" title="Större rutor" style="background:#444;padding:6px 8px">＋</button>
+            <label><input id="simpleRender" type="checkbox" /> Enkel rendering</label>
+            <button id="btnUndo" title="Ångra" style="background:#666">↶</button>
+            <button id="btnRedo" title="Gör om" style="background:#666">↷</button>
+          </div>
+          </div>
+          <div id="tabGeo" class="panel" style="display:none;background:#101010;margin-bottom:8px">
+            <div class="row" style="flex-wrap:wrap;gap:8px;margin:0">
+              <strong>Geometri:</strong>
+              <button id="btnFlipH">Vänd horisontellt</button>
+              <button id="btnFlipV">Vänd vertikalt</button>
+              <label>Rotera°</label>
+              <input id="rotDeg" type="number" value="15" style="width:70px"/>
+              <button id="btnRotate">Rotera</button>
+              <label>Skala×</label>
+              <input id="scaleF" type="number" value="1.1" step="0.1" style="width:80px"/>
+              <button id="btnScale">Skala</button>
+              <button id="btnSnapEnds">Snäpp ändpunkter mot kanter</button>
+            </div>
+          </div>
+          <div id="tabClipboard" class="panel" style="display:none;background:#101010;margin-bottom:8px">
+            <div class="row" style="flex-wrap:wrap;gap:8px;margin:0">
+              <strong>Urklipp:</strong>
+              <button id="btnCopy">Kopiera punkter</button>
+              <button id="btnPaste">Klistra in</button>
+            </div>
+          </div>
+          <div id="tabInfo" class="panel" style="display:none;background:#101010;margin-bottom:8px">
+            <div id="stats" style="font-size:12px;color:#aaa"></div>
+          </div>
+          <div class="designerArea">
+            <div class="buildPanel">
+              <h4>🧱 Byggpanel</h4>
+              <div class="row" style="gap:6px; flex-wrap:wrap; margin-bottom:6px">
+                <button id="btnRouteNewLeft">+ Ny startsträcka</button>
+                <button id="btnRouteRemoveLeft" style="background:#b33">Ta bort rutt</button>
+              </div>
+              <div class="row" style="gap:6px; flex-wrap:wrap; margin-bottom:6px; align-items:center">
+                <button id="btnRoutePrev" title="Föregående rutt (byt aktiv rutt)" style="background:#444">◀ Föreg.</button>
+                <span id="routeIndexLabel" style="font-size:12px;color:#bbb;min-width:72px;text-align:center">Rutt 1/1</span>
+                <button id="btnRouteNext" title="Nästa rutt (byt aktiv rutt)" style="background:#444">Nästa ▶</button>
+              </div>
+              <div class="row" style="gap:6px; flex-wrap:wrap; margin-bottom:6px">
+                <label for="routeColor" style="font-size:12px;color:#bbb">Rutt‑färg</label>
+                <input id="routeColor" type="color" value="#4ade80" style="width:90px" />
+                <label for="routeLabel" style="font-size:12px;color:#bbb">Etikett</label>
+                <input id="routeLabel" placeholder="S, S2…" style="width:90px" />
+                <button id="btnApplyRouteStyle" title="Spara stil för rutt" style="background:#444">Spara stil</button>
+              </div>
+              <div class="row" style="gap:6px; flex-wrap:wrap; margin-bottom:6px">
+                <button id="btnToolPath" title="Redigera väg" style="background:#2d6">Väg‑läge</button>
+              </div>
+              <div class="row" style="gap:6px; flex-wrap:wrap; margin-bottom:6px">
+                <label><input id="appendMode" type="checkbox" checked /> Bygg i slutet</label>
+                <span class="tinyHint">Skift = infoga i segment</span>
+              </div>
+              <div class="buildList" id="buildList"></div>
+              <div class="tinyHint" style="margin-top:8px">Tips: klicka för att placera, dra för att släppa på kartan. Högerklick tar bort.</div>
+            </div>
+            <div class="canvasCol">
+              <div style="margin-bottom:6px">Redigera väg grafiskt:</div>
+              <canvas id="mapCanvas" width="640" height="420" style="background:#1a1a1a;border-radius:10px;display:block;margin-bottom:6px;touch-action:none;aspect-ratio:3/2;width:100%;height:auto"></canvas>
+              <div id="statusBar" class="row" style="font-size:12px;color:#aaa;justify-content:space-between;margin-bottom:8px">
+                <span id="statusLeft">0 punkter</span>
+                <span id="statusRight"></span>
+              </div>
+            </div>
+          </div>
+          </div>
           <div class="row" style="gap:8px">
             <button id="btnSaveMap">Spara karta</button>
             <button id="btnCancelMap" style="background:#888">Avbryt</button>
@@ -89,29 +337,65 @@
     </div>
   </div>
   <script src="src/maps.js"></script>
+  <script src="src/towers.js" type="module"></script>
+  <script src="src/persist.js" type="module"></script>
   <script>
     window.onload = function() {
-      // --- Robust Map Management UI (file:// compatible) ---
+      // --- Admin auth gate ---
+      async function sha256Hex(text){
+        try{
+          const enc=new TextEncoder().encode('kaffekatten:'+text+':v1');
+          const buf=await crypto.subtle.digest('SHA-256', enc);
+          return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+        }catch(e){ // Fallback simple hash
+          let h=2166136261>>>0; for(let i=0;i<text.length;i++){ h^=text.charCodeAt(i); h=(h>>>0)*16777619>>>0; } return ('00000000'+(h>>>0).toString(16)).slice(-8);
+        }
+      }
+      function getStoredPassHash(){ try{ return localStorage.getItem('admin-pass-v1')||''; }catch(_e){ return ''; } }
+      function setStoredPassHash(v){ try{ if(v) localStorage.setItem('admin-pass-v1', v); else localStorage.removeItem('admin-pass-v1'); }catch(_e){} }
+      function markAuthed(){ try{ sessionStorage.setItem('admin-auth-ok','1'); }catch(_e){} }
+      function clearAuthed(){ try{ sessionStorage.removeItem('admin-auth-ok'); }catch(_e){} }
+      function isAuthed(){ try{ return sessionStorage.getItem('admin-auth-ok')==='1'; }catch(_e){ return false; } }
+      function updateAdminPassHint(){
+        const hint = document.getElementById('adminPassHint'); if(!hint) return;
+        const set = !!getStoredPassHash();
+        hint.textContent = set ? 'Lösenord är aktiverat. Kom ihåg det för att öppna Admin.' : 'Inget lösenord satt. Alla kan öppna Admin via denna dator.';
+      }
+      async function ensureAdminAuth(){
+        const saved = getStoredPassHash(); if(!saved){ markAuthed(); updateAdminPassHint(); return; }
+        updateAdminPassHint();
+        if(isAuthed()) return;
+        const overlay=document.getElementById('authOverlay'); const pw=document.getElementById('authPw'); const msg=document.getElementById('authMsg'); const btn=document.getElementById('btnAuthLogin');
+        if(!overlay||!pw||!btn) return; overlay.style.display='flex'; msg.textContent='Lösenord krävs för att öppna Admin.'; pw.value=''; pw.focus();
+        async function tryLogin(){ const input=pw.value||''; const h=await sha256Hex(input); if(h===getStoredPassHash()){ overlay.style.display='none'; markAuthed(); } else { msg.textContent='Fel lösenord. Försök igen.'; pw.value=''; pw.focus(); } }
+        btn.onclick = tryLogin; pw.onkeydown = (e)=>{ if(e.key==='Enter') tryLogin(); };
+      }
+  // --- Robust Map Management UI (file:// compatible) ---
       function get(id) {
         const el = document.getElementById(id);
         if (!el) console.error('Element not found:', id);
         return el;
       }
       const mapsList = get('mapsList');
-      const btnNewMap = get('btnNewMap');
+  const btnNewMap = get('btnNewMap');
       const btnRestoreDefaults = get('btnRestoreDefaults');
       const mapEditSection = get('mapEditSection');
       const mapEditTitle = get('mapEditTitle');
       const mapName = get('mapName');
-      const mapDesc = get('mapDesc');
+  const mapDesc = get('mapDesc');
+  const mapIdInput = get('mapId');
       const mapCanvas = get('mapCanvas');
       const btnSaveMap = get('btnSaveMap');
       const btnCancelMap = get('btnCancelMap');
       const btnDeleteMap = get('btnDeleteMap');
       const mapEditHint = get('mapEditHint');
       let editingMap = null;
+  let undoStack = [], redoStack = [];
 
-      function renderMapsList() {
+  // Require auth if password set
+  ensureAdminAuth();
+
+  function renderMapsList() {
         try {
           const maps = window.Maps.loadMaps();
           mapsList.innerHTML = '';
@@ -164,15 +448,62 @@
         }
         return { changed:true, scaleX, scaleY };
       }
-      function openMapEditor(map) {
+      let currentRouteIndex = 0;
+      // Environment objects registry on the map (generic); bridges will be derived from these when saving
+      let envObjects = [];
+      // Build catalog to allow easy extension
+      const BUILD_ITEMS = [
+        { type:'bridge', label:'Bro', icon:'🌉', size:{w:120,h:40}, shape:'rect' },
+        { type:'tree', label:'Träd', icon:'🌲', size:{r:14}, shape:'circle', color:'#2de36c' },
+        { type:'pillar', label:'Pelare', icon:'🗼', size:{r:10}, shape:'circle', color:'#7aa5ff' },
+        { type:'console', label:'Konsol', icon:'🖥', size:{w:34,h:22}, shape:'rect', color:'#33c1ff' },
+        { type:'rainEmitter', label:'Regn‑emitter', icon:'💧', size:{r:8}, shape:'circle', color:'#55d0ff' }
+      ];
+      let activeTool = null; // {type,...}
+      function ensureRoutesStructure(m){
+        if(Array.isArray(m.routes) && m.routes.length>0 && Array.isArray(m.routes[0].points)) return;
+        // migrate legacy points -> routes[0]
+        const pts = Array.isArray(m.points)? m.points.slice(): [];
+        m.routes = [{ id: 'r1', points: pts }];
+        delete m.points;
+      }
+      function getActivePoints(){ if(!editingMap||!Array.isArray(editingMap.routes)) return []; return editingMap.routes[currentRouteIndex]?.points || []; }
+      function setActivePoints(newPts){ if(!editingMap||!Array.isArray(editingMap.routes)) return; editingMap.routes[currentRouteIndex].points = newPts; editingMap.modified=Date.now(); }
+  function refreshRouteSelect(){ /* dropdown removed */ }
+  function openMapEditor(map) {
         // Deep clone
         editingMap = JSON.parse(JSON.stringify(map));
-        const upg = upgradeLegacyPoints(editingMap.points);
+        ensureRoutesStructure(editingMap);
+        // Legacy upgrade: scale if needed on first route
+        const upg = upgradeLegacyPoints(editingMap.routes[0].points);
+        // Per-map settings/env defaults
+        editingMap.settings = editingMap.settings || { difficulty:1, endless:false, roundSeconds:25, maxWaves:25, pathWidth:24, startMoney:100, startLives:10 };
+  editingMap.environment = editingMap.environment || { matrix:{ on:false, tint:'#113311', rain:false }, bridges:[], objects:[], boostPads:[], cursedTiles:[], fogRects:[] };
+        // Load generic objects (backward‑compatible with old 'bridges')
+        envObjects = Array.isArray(editingMap.environment.objects) ? editingMap.environment.objects.slice() : [];
+        const oldBridges = Array.isArray(editingMap.environment.bridges)? editingMap.environment.bridges.slice(): [];
+        for(const b of oldBridges){ if(!envObjects.some(o=>o.type==='bridge' && o.x===b.x && o.y===b.y && o.w===b.w && o.h===b.h)){ envObjects.push({ type:'bridge', x:b.x, y:b.y, w:b.w, h:b.h }); } }
         mapEditSection.style.display = '';
         mapEditTitle.textContent = map.id ? 'Redigera karta' : 'Ny karta';
         mapName.value = editingMap.name || '';
-        mapDesc.value = editingMap.description || '';
+  mapDesc.value = editingMap.description || '';
+  if(mapIdInput) mapIdInput.value = editingMap.id || '';
         btnDeleteMap.style.display = (editingMap.type !== 'default') ? '' : 'none';
+        // Fill per-map settings UI
+        (document.getElementById('mapStartMoney')||{}).value = String(editingMap.settings.startMoney||100);
+        (document.getElementById('mapStartLives')||{}).value = String(editingMap.settings.startLives||10);
+        (document.getElementById('mapPathWidth')||{}).value = String(editingMap.settings.pathWidth||24);
+        (document.getElementById('mapDifficulty')||{}).value = String(editingMap.settings.difficulty||1);
+        (document.getElementById('mapEndless')||{}).checked = !!editingMap.settings.endless;
+        (document.getElementById('mapRoundSeconds')||{}).value = String(editingMap.settings.roundSeconds||25);
+        (document.getElementById('mapMaxWaves')||{}).value = String(editingMap.settings.maxWaves||25);
+  (document.getElementById('envMatrixOn')||{}).checked = !!editingMap.environment?.matrix?.on;
+  (document.getElementById('envMatrixTint')||{}).value = editingMap.environment?.matrix?.tint || '#113311';
+  (document.getElementById('envMatrixRain')||{}).checked = !!editingMap.environment?.matrix?.rain;
+  currentRouteIndex = 0; refreshRouteSelect();
+  // initialize route style UI
+  try{ const rc=document.getElementById('routeColor'); const rl=document.getElementById('routeLabel'); if(rc||rl){ const r=editingMap.routes[0]; r.style=r.style||{}; if(!r.style.color) r.style.color = '#4ade80'; if(!r.style.label) r.style.label = 'S'; if(rc) rc.value=r.style.color; if(rl) rl.value=r.style.label; } }catch(_e){}
+  if(typeof updateRouteIndexLabel==='function') updateRouteIndexLabel();
         drawMapCanvas();
         mapEditHint.textContent = upg.changed
           ? 'Legacy‑karta uppskalad ('+upg.scaleX.toFixed(2)+'× / '+upg.scaleY.toFixed(2)+'×). Spara för att permanenta.'
@@ -202,16 +533,20 @@
           }
         }
       };
-      if (btnSaveMap) btnSaveMap.onclick = () => {
+  if (btnSaveMap) btnSaveMap.onclick = () => {
         if (!editingMap) return;
-        if (!editingMap.points || editingMap.points.length < 2) {
-          mapEditHint.textContent = 'Du måste lägga till minst två punkter på kartan!';
+  ensureRoutesStructure(editingMap);
+  // Ensure at least one non-empty route, and put it at index 0 for compatibility
+  const firstNonEmpty = editingMap.routes.findIndex(r => Array.isArray(r.points) && r.points.length>=2);
+  if(firstNonEmpty === -1){
+          mapEditHint.textContent = 'Du måste lägga till minst två punkter på minst en startsträcka!';
           mapEditHint.style.color = '#f66';
           return;
         }
+  if(firstNonEmpty>0){ const tmp=editingMap.routes[0]; editingMap.routes[0]=editingMap.routes[firstNonEmpty]; editingMap.routes[firstNonEmpty]=tmp; }
         // Bedöm om punkterna redan är i spel-koordinater (inom PAD..GAME_W-PAD)
         let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
-        for(const pt of editingMap.points){
+  for(const pt of editingMap.routes[0].points){
           if(pt.x<minX)minX=pt.x; if(pt.y<minY)minY=pt.y; if(pt.x>maxX)maxX=pt.x; if(pt.y>maxY)maxY=pt.y;
         }
     const GAME_W=1200,GAME_H=800,PAD=24;
@@ -220,30 +555,69 @@
           // Skala in i spel-ytan med padding
           const srcW = (maxX-minX)||1, srcH=(maxY-minY)||1;
       const scale = Math.min((GAME_W-2*PAD)/srcW, (GAME_H-2*PAD)/srcH);
-          editingMap.points = editingMap.points.map(pt=>({
+          editingMap.routes[0].points = editingMap.routes[0].points.map(pt=>({
             x: ((pt.x-minX)*scale)+PAD,
             y: ((pt.y-minY)*scale)+PAD
           }));
         }
         editingMap.scaled = true;
-        const safeName = mapName.value.trim() || 'Namnlös karta';
-        const safeId = safeName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  const safeName = mapName.value.trim() || 'Namnlös karta';
+  const safeId = (mapIdInput && mapIdInput.value.trim()) ? mapIdInput.value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-') : safeName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
         editingMap.name = safeName;
         editingMap.id = safeId;
         editingMap.description = mapDesc.value.trim();
+        // Write per-map settings/env from UI
+        editingMap.settings.startMoney = parseInt(document.getElementById('mapStartMoney')?.value||'100',10);
+        editingMap.settings.startLives = parseInt(document.getElementById('mapStartLives')?.value||'10',10);
+        editingMap.settings.pathWidth  = parseInt(document.getElementById('mapPathWidth')?.value||'24',10);
+        editingMap.settings.difficulty = parseInt(document.getElementById('mapDifficulty')?.value||'1',10);
+        editingMap.settings.endless    = !!document.getElementById('mapEndless')?.checked;
+        editingMap.settings.roundSeconds = parseFloat(document.getElementById('mapRoundSeconds')?.value||'25');
+        editingMap.settings.maxWaves   = parseInt(document.getElementById('mapMaxWaves')?.value||'25',10);
+  editingMap.environment.matrix = editingMap.environment.matrix || {};
+  editingMap.environment.matrix.on = !!document.getElementById('envMatrixOn')?.checked;
+  editingMap.environment.matrix.tint = document.getElementById('envMatrixTint')?.value || '#113311';
+  editingMap.environment.matrix.rain = !!document.getElementById('envMatrixRain')?.checked;
+        // Persist objects and derive bridges from them for runtime compatibility
+        editingMap.environment.objects = envObjects.slice();
+        editingMap.environment.bridges = envObjects.filter(o=>o.type==='bridge').map(o=>({x:o.x|0,y:o.y|0,w:o.w|0,h:o.h|0}));
         window.Maps.upsertMap(editingMap);
         renderMapsList();
         closeMapEditor();
       };
-      // --- Graphical Path Editor ---
+  // --- Graphical Path Editor ---
       let dragIdx = null;
       let dragOffset = {x:0, y:0};
+  let hoverIdx = null, hoverSeg = null; let lastMouse = null;
+  function getGridSize(){
+    const el=document.getElementById('gridSize');
+    const v=parseInt(el?.value||'4',10);
+    return (isFinite(v) && v>=1 && v<=120)? v : 4;
+  }
       // --- Coordinate helpers (keep points in game coords; scale for display) ---
-  const GAME_W=1200, GAME_H=800, PAD=24; // storage coordinate space updated to real game canvas
-  const EDIT_W=360, EDIT_H=240, EPAD=12; // editor canvas and padding (3:2 aspect)
-      const SRC_W = GAME_W-2*PAD, SRC_H = GAME_H-2*PAD;
-      const DST_W = EDIT_W-2*EPAD, DST_H = EDIT_H-2*EPAD;
-      const EDIT_SCALE = Math.min(DST_W/SRC_W, DST_H/SRC_H);
+  const GAME_W=1200, GAME_H=800, PAD=24; // storage coordinate space
+  let EDIT_W=mapCanvas.width, EDIT_H=mapCanvas.height; // updated on resize
+  const EPAD=12; // editor padding
+  let SRC_W = GAME_W-2*PAD, SRC_H = GAME_H-2*PAD;
+  let DST_W = EDIT_W-2*EPAD, DST_H = EDIT_H-2*EPAD;
+  let EDIT_SCALE = Math.min(DST_W/SRC_W, DST_H/SRC_H);
+  function recomputeScale(){
+    EDIT_W = mapCanvas.width; EDIT_H = mapCanvas.height;
+    SRC_W = GAME_W-2*PAD; SRC_H = GAME_H-2*PAD;
+    DST_W = EDIT_W-2*EPAD; DST_H = EDIT_H-2*EPAD;
+    EDIT_SCALE = Math.min(DST_W/SRC_W, DST_H/SRC_H);
+  }
+  function ensureCanvasResolution(){
+    if(!mapCanvas) return;
+    const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+    const cssW = Math.max(320, Math.floor(mapCanvas.clientWidth));
+    const cssH = Math.max(200, Math.floor(mapCanvas.clientHeight || cssW*2/3));
+    const targetW = Math.floor(cssW * dpr);
+    const targetH = Math.floor(cssH * dpr);
+    if(mapCanvas.width !== targetW || mapCanvas.height !== targetH){
+      mapCanvas.width = targetW; mapCanvas.height = targetH; recomputeScale();
+    }
+  }
       function scaleGameToEditor(pt){
         return { x: ((pt.x-PAD)*EDIT_SCALE)+EPAD, y: ((pt.y-PAD)*EDIT_SCALE)+EPAD };
       }
@@ -255,53 +629,169 @@
         pt.y = Math.max(PAD, Math.min(GAME_H-PAD, pt.y));
         return pt;
       }
-      function drawMapCanvas() {
+  function drawMapCanvas() {
         if (!mapCanvas) return;
+        ensureCanvasResolution();
         const ctx = mapCanvas.getContext('2d');
         ctx.clearRect(0,0,mapCanvas.width,mapCanvas.height);
         if (!editingMap) return;
-        // Draw game bounds (PAD) for clarity
+  // Grid with majors
+  const GRID=getGridSize(); // editor pixels
+  ctx.save();
+  const majorEvery = Math.max(5, Math.round(50/GRID)); // keep majors about every ~50px
+  for(let x=0;x<=mapCanvas.width;x+=GRID){
+    ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,mapCanvas.height);
+    const major = (Math.round(x/GRID) % majorEvery === 0);
+    ctx.strokeStyle = major? '#262626' : '#1b1b1b';
+    ctx.lineWidth = major? 1.2 : 1;
+    ctx.stroke();
+  }
+  for(let y=0;y<=mapCanvas.height;y+=GRID){
+    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(mapCanvas.width,y);
+    const major = (Math.round(y/GRID) % majorEvery === 0);
+    ctx.strokeStyle = major? '#262626' : '#1b1b1b';
+    ctx.lineWidth = major? 1.2 : 1;
+    ctx.stroke();
+  }
+  ctx.restore();
+  // Draw game bounds (PAD) for clarity
         ctx.save();
         ctx.strokeStyle = '#333';
         ctx.lineWidth = 1;
-        const padRectX = EPAD - (PAD*EDIT_SCALE - 0); // but since we scale from PAD we can just show inner area
+  const padRectX = EPAD - (PAD*EDIT_SCALE - 0); // kept for potential guides
         // Simpler: draw editor working area background subtle (already background) so skip rect
         ctx.restore();
-        // Draw path lines
-        const pts = editingMap.points;
-        if (pts.length) {
-          const PATH_W_GAME = 24; // could be dynamic later
-          const W = PATH_W_GAME * EDIT_SCALE;
-          const innerW = Math.max(6, W*0.55);
-          const edgeW = Math.max(4, W*0.08);
-          const p0 = scaleGameToEditor(pts[0]);
-          // Base
-          ctx.save();
-          ctx.strokeStyle='#2a2a2a'; ctx.lineCap='round'; ctx.lineWidth=W;
-          ctx.beginPath(); ctx.moveTo(p0.x, p0.y);
-          for (let i=1;i<pts.length;i++){ const p=scaleGameToEditor(pts[i]); ctx.lineTo(p.x,p.y); }
-          ctx.stroke(); ctx.restore();
-          // Inner highlight
-          ctx.save(); ctx.strokeStyle='rgba(255,255,255,0.08)'; ctx.lineCap='round'; ctx.lineWidth=innerW;
-          ctx.beginPath(); ctx.moveTo(p0.x, p0.y);
-          for (let i=1;i<pts.length;i++){ const p=scaleGameToEditor(pts[i]); ctx.lineTo(p.x,p.y); }
-          ctx.stroke(); ctx.restore();
-          // Edge accent
-          ctx.save(); ctx.strokeStyle='rgba(0,0,0,0.35)'; ctx.lineCap='round'; ctx.lineWidth=edgeW;
-          ctx.beginPath(); ctx.moveTo(p0.x, p0.y);
-          for (let i=1;i<pts.length;i++){ const p=scaleGameToEditor(pts[i]); ctx.lineTo(p.x,p.y); }
-          ctx.stroke(); ctx.restore();
-        }
+  // Matrix tint preview
+  try{ if(editingMap?.environment?.matrix?.on){ ctx.save(); ctx.fillStyle = (editingMap.environment.matrix.tint||'#113311') + '88'; ctx.globalCompositeOperation='multiply'; ctx.fillRect(0,0,mapCanvas.width,mapCanvas.height); ctx.restore(); } }catch(_e){}
+  // Draw environment objects preview (bridges + props)
+  try{
+    const objs = envObjects||[];
+    for(const o of objs){
+      if(o.type==='bridge'){
+        const ed=scaleGameToEditor({x:o.x,y:o.y}); const ew=o.w*EDIT_SCALE, eh=o.h*EDIT_SCALE;
+        ctx.save(); ctx.fillStyle='rgba(80,120,180,0.25)'; ctx.strokeStyle='#5aa'; ctx.lineWidth=2; ctx.fillRect(ed.x, ed.y, ew, eh); ctx.strokeRect(ed.x, ed.y, ew, eh); ctx.restore();
+      } else if(o.type==='tree'){
+        const ed=scaleGameToEditor({x:o.x,y:o.y}); const r=(o.r||14)*EDIT_SCALE;
+        ctx.save(); ctx.fillStyle=o.color||'#2de36c'; ctx.beginPath(); ctx.arc(ed.x, ed.y, Math.max(4,r), 0, Math.PI*2); ctx.fill(); ctx.strokeStyle='#0b2'; ctx.stroke(); ctx.restore();
+      } else if(o.type==='pillar'){
+        const ed=scaleGameToEditor({x:o.x,y:o.y}); const r=(o.r||10)*EDIT_SCALE;
+        ctx.save(); ctx.fillStyle=o.color||'#7aa5ff'; ctx.beginPath(); ctx.arc(ed.x, ed.y, Math.max(3,r), 0, Math.PI*2); ctx.fill(); ctx.restore();
+      } else if(o.type==='console'){
+        const ed=scaleGameToEditor({x:o.x,y:o.y}); const ew=(o.w||34)*EDIT_SCALE, eh=(o.h||22)*EDIT_SCALE;
+        ctx.save(); ctx.fillStyle=o.color||'#33c1ff'; ctx.fillRect(ed.x, ed.y, ew, eh); ctx.fillStyle='#022'; ctx.fillRect(ed.x+4, ed.y+4, Math.max(2,ew-8), Math.max(2,eh-10)); ctx.restore();
+      } else if(o.type==='rainEmitter'){
+        const ed=scaleGameToEditor({x:o.x,y:o.y}); const r=(o.r||8)*EDIT_SCALE;
+        ctx.save(); ctx.fillStyle=o.color||'#55d0ff'; ctx.beginPath(); ctx.arc(ed.x, ed.y, Math.max(3,r), 0, Math.PI*2); ctx.fill(); ctx.restore();
+      }
+    }
+  }catch(_e){}
+  // Draw routes: first all non-active (dim), then the active route
+  ensureRoutesStructure(editingMap);
+  const allRoutes = editingMap.routes||[];
+  const PATH_W_GAME = 24;
+  const W = PATH_W_GAME * EDIT_SCALE;
+  const innerW = Math.max(6, W*0.55);
+  const useSimple = !!(document.getElementById('simpleRender')?.checked);
+  function drawPolyline(edPts, style){
+    if(edPts.length<2) return;
+    if(style==='dim'){
+      // dimmed background route
+      ctx.save(); ctx.lineCap='round'; ctx.lineJoin='round';
+      ctx.strokeStyle='rgba(255,255,255,0.06)'; ctx.lineWidth=Math.max(4, innerW*0.6);
+      ctx.beginPath(); ctx.moveTo(edPts[0].x, edPts[0].y); for(let i=1;i<edPts.length;i++){ ctx.lineTo(edPts[i].x, edPts[i].y); } ctx.stroke();
+      ctx.strokeStyle='#232323'; ctx.lineWidth=W*0.9;
+      ctx.beginPath(); ctx.moveTo(edPts[0].x, edPts[0].y); for(let i=1;i<edPts.length;i++){ ctx.lineTo(edPts[i].x, edPts[i].y); } ctx.stroke();
+      ctx.restore();
+    } else if(useSimple){
+      ctx.save(); ctx.lineCap='round'; ctx.lineJoin='round';
+      ctx.strokeStyle='#2a2a2a'; ctx.lineWidth=W;
+      ctx.beginPath(); ctx.moveTo(edPts[0].x, edPts[0].y); for(let i=1;i<edPts.length;i++){ ctx.lineTo(edPts[i].x, edPts[i].y); } ctx.stroke(); ctx.restore();
+      ctx.save(); ctx.strokeStyle='rgba(255,255,255,0.08)'; ctx.lineWidth=Math.max(4, innerW*0.7);
+      ctx.beginPath(); ctx.moveTo(edPts[0].x, edPts[0].y); for(let i=1;i<edPts.length;i++){ ctx.lineTo(edPts[i].x, edPts[i].y); } ctx.stroke(); ctx.restore();
+    } else {
+      const glowW = Math.max(8, W*1.6);
+      ctx.save(); ctx.lineCap='round'; ctx.lineJoin='round';
+      ctx.strokeStyle='rgba(0,0,0,0.35)'; ctx.lineWidth=glowW; ctx.shadowColor='rgba(0,0,0,0.4)'; ctx.shadowBlur=12;
+      ctx.beginPath(); ctx.moveTo(edPts[0].x, edPts[0].y); for(let i=1;i<edPts.length;i++){ ctx.lineTo(edPts[i].x, edPts[i].y); } ctx.stroke(); ctx.restore();
+      ctx.save(); ctx.lineCap='round'; ctx.lineJoin='round';
+      ctx.strokeStyle='#2a2a2a'; ctx.lineWidth=W*1.05;
+      ctx.beginPath(); ctx.moveTo(edPts[0].x, edPts[0].y); for(let i=1;i<edPts.length;i++){ ctx.lineTo(edPts[i].x, edPts[i].y); } ctx.stroke(); ctx.restore();
+      ctx.save(); ctx.lineCap='round'; ctx.lineJoin='round';
+      const grad = ctx.createLinearGradient(edPts[0].x, edPts[0].y, edPts[edPts.length-1].x, edPts[edPts.length-1].y);
+      grad.addColorStop(0,'rgba(255,255,255,0.06)'); grad.addColorStop(1,'rgba(255,255,255,0.12)');
+      ctx.strokeStyle=grad; ctx.lineWidth=innerW;
+      ctx.beginPath(); ctx.moveTo(edPts[0].x, edPts[0].y); for(let i=1;i<edPts.length;i++){ ctx.lineTo(edPts[i].x, edPts[i].y); } ctx.stroke(); ctx.restore();
+    }
+  }
+  // Draw non-active routes dimmed
+  for(let i=0;i<allRoutes.length;i++){
+    if(i===currentRouteIndex) continue;
+    const ptsOther = allRoutes[i].points||[]; if(ptsOther.length<2) continue;
+    const edOther = ptsOther.map(scaleGameToEditor);
+    drawPolyline(edOther, 'dim');
+    // per-route thin accent line and start marker in its color
+    try{
+      const col = (allRoutes[i].style && allRoutes[i].style.color) || '#4ade80';
+      ctx.save(); ctx.strokeStyle=col; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(edOther[0].x,edOther[0].y); for(let j=1;j<edOther.length;j++){ ctx.lineTo(edOther[j].x,edOther[j].y); } ctx.stroke(); ctx.restore();
+    }catch(_e){}
+    // small endpoint dots
+    const s=edOther[0], g=edOther[edOther.length-1];
+    ctx.save(); const col2=(allRoutes[i].style&&allRoutes[i].style.color)||'#4ade80'; ctx.fillStyle=col2+'66'; ctx.beginPath(); ctx.arc(s.x,s.y,5,0,Math.PI*2); ctx.fill(); ctx.fillStyle='rgba(248,113,113,0.4)'; ctx.beginPath(); ctx.arc(g.x,g.y,5,0,Math.PI*2); ctx.fill(); ctx.restore();
+  }
+  // Draw active route
+  const pts = getActivePoints();
+  if (!pts.length) {
+    ctx.save(); ctx.fillStyle='rgba(255,255,255,0.08)'; ctx.font='14px system-ui'; ctx.fillText('Klicka i ytan för att lägga till punkter, eller använd Generator', 18, 26); ctx.restore();
+  }
+  if (pts.length) {
+    const ed = pts.map(scaleGameToEditor);
+    drawPolyline(ed, 'active');
+  // accent overlay in styled color for active route
+  try{ const col=(allRoutes[currentRouteIndex].style&&allRoutes[currentRouteIndex].style.color)||'#4ade80'; ctx.save(); ctx.strokeStyle=col; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(ed[0].x,ed[0].y); for(let j=1;j<ed.length;j++){ ctx.lineTo(ed[j].x,ed[j].y); } ctx.stroke(); ctx.restore(); }catch(_e){}
+    // Hover segment highlight
+    if(hoverSeg!==null && hoverSeg>=0 && hoverSeg<ed.length-1){
+      const a=ed[hoverSeg], b=ed[hoverSeg+1];
+      ctx.save(); ctx.strokeStyle='rgba(80,200,255,0.8)'; ctx.lineWidth=Math.max(4, innerW*0.6); ctx.lineCap='round';
+      ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); ctx.restore();
+    }
+  }
         // Draw points
-        for (let i=0; i<pts.length; i++) {
+  for (let i=0; i<pts.length; i++) {
           const p = scaleGameToEditor(pts[i]);
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, 7, 0, Math.PI*2);
-          ctx.fillStyle = (i===0) ? '#6f6' : (i===pts.length-1 ? '#f66' : '#fff');
-          ctx.fill();
-          ctx.strokeStyle = '#333';
-          ctx.stroke();
+          // glow halo
+          const r=7; const g=ctx.createRadialGradient(p.x,p.y,1,p.x,p.y,r*2.2);
+          if(i===0){ g.addColorStop(0,'rgba(60,255,120,0.6)'); g.addColorStop(1,'rgba(60,255,120,0)'); }
+          else if(i===pts.length-1){ g.addColorStop(0,'rgba(255,120,120,0.6)'); g.addColorStop(1,'rgba(255,120,120,0)'); }
+          else { g.addColorStop(0,'rgba(255,255,255,0.35)'); g.addColorStop(1,'rgba(255,255,255,0)'); }
+          ctx.fillStyle=g; ctx.beginPath(); ctx.arc(p.x,p.y,r*2,0,Math.PI*2); ctx.fill();
+          // core
+          ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI*2);
+          ctx.fillStyle = (i===0) ? '#4ade80' : (i===pts.length-1 ? '#f87171' : '#fff');
+          ctx.fill(); ctx.strokeStyle = '#333'; ctx.stroke();
+          // labels for endpoints
+          if(i===0||i===pts.length-1){ ctx.save(); ctx.fillStyle='rgba(255,255,255,0.7)'; ctx.font='12px system-ui'; ctx.textBaseline='middle'; const lab=(i===0)? ((allRoutes[currentRouteIndex].style&&allRoutes[currentRouteIndex].style.label)|| (currentRouteIndex===0?'Start':'Start '+(currentRouteIndex+1))) : 'Mål'; ctx.fillText(lab, p.x+12, p.y); ctx.restore(); }
+          // hover point ring
+          if(hoverIdx===i){ ctx.save(); ctx.strokeStyle='rgba(80,200,255,0.9)'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(p.x,p.y,r+4,0,Math.PI*2); ctx.stroke(); ctx.restore(); }
         }
+  // Crosshair
+  if(lastMouse){ ctx.save(); ctx.strokeStyle='rgba(255,255,255,0.08)'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(lastMouse.x-6,lastMouse.y); ctx.lineTo(lastMouse.x+6,lastMouse.y); ctx.moveTo(lastMouse.x,lastMouse.y-6); ctx.lineTo(lastMouse.x,lastMouse.y+6); ctx.stroke(); ctx.restore(); }
+  // Status
+  const lenPx = (()=>{ let L=0; for(let i=0;i<pts.length-1;i++){ const a=pts[i], b=pts[i+1]; L += Math.hypot(b.x-a.x, b.y-a.y); } return L; })();
+  const analysis = (window.Maps && window.Maps.analyzePath) ? window.Maps.analyzePath(pts) : { difficulty:0, bends:0, avgTurn:0, bbox:{w:0,h:0} };
+  const sL = get('statusLeft'); if (sL) sL.textContent = `${pts.length} punkter • längd ${(lenPx|0)} px • svårighet ${analysis.difficulty.toFixed ? analysis.difficulty.toFixed(1) : analysis.difficulty}`;
+  const sR = get('statusRight'); if (sR) sR.textContent = dragIdx!==null? `Flyttar punkt #${dragIdx+1}` : '';
+  const stats = get('stats'); if (stats) {
+    const bends = analysis.bends ?? 0; const avgDeg = analysis.avgTurn ? (analysis.avgTurn*180/Math.PI) : 0; const bw = analysis.bbox?.w ?? 0; const bh = analysis.bbox?.h ?? 0;
+    const inter = (window.Maps && window.Maps.detectSelfIntersections) ? window.Maps.detectSelfIntersections(pts) : {count:0};
+    stats.innerHTML = `
+      Punkter: ${pts.length}<br>
+      Längd: ${lenPx.toFixed(0)} px<br>
+      Böjar: ${bends}, Snitt‑sväng: ${avgDeg.toFixed(1)}°<br>
+      BBox: ${bw.toFixed(0)} × ${bh.toFixed(0)} px<br>
+      Svårighet: ${analysis.difficulty?.toFixed ? analysis.difficulty.toFixed(1) : analysis.difficulty}<br>
+      Korsningar: ${inter.count}
+    `;
+  }
       }
       function getMousePos(evt) {
         const rect = mapCanvas.getBoundingClientRect();
@@ -310,63 +800,507 @@
           y: (evt.clientY - rect.top) * (mapCanvas.height / rect.height)
         };
       }
+  // Build-panel route buttons
+  const btnRouteNewLeft = document.getElementById('btnRouteNewLeft');
+  const btnRoutePrev = document.getElementById('btnRoutePrev');
+  const btnRouteNext = document.getElementById('btnRouteNext');
+  const btnRouteRemoveLeft = document.getElementById('btnRouteRemoveLeft');
+  const routeIndexLabel = document.getElementById('routeIndexLabel');
+  function updateRouteIndexLabel(){ try{ if(!editingMap || !Array.isArray(editingMap.routes)) { if(routeIndexLabel) routeIndexLabel.textContent='Rutt -/-'; return; } const total=editingMap.routes.length||1; const cur=(currentRouteIndex|0)+1; if(routeIndexLabel) routeIndexLabel.textContent=`Rutt ${cur}/${total}`; }catch(_e){} }
+  // Route style controls
+  const routeColor = document.getElementById('routeColor');
+  const routeLabel = document.getElementById('routeLabel');
+  const btnApplyRouteStyle = document.getElementById('btnApplyRouteStyle');
+  function defaultRouteColor(idx){ const pal=['#4ade80','#60a5fa','#f472b6','#f59e0b','#22d3ee','#a78bfa']; return pal[idx % pal.length]; }
+  function defaultRouteLabel(idx){ return idx===0? 'S' : ('S'+(idx+1)); }
+  function syncRouteStyleInputs(){ try{ if(!editingMap) return; ensureRoutesStructure(editingMap); const r=editingMap.routes[currentRouteIndex]||{}; r.style = r.style || {}; if(!r.style.color) r.style.color = defaultRouteColor(currentRouteIndex); if(!r.style.label) r.style.label = defaultRouteLabel(currentRouteIndex); if(routeColor) routeColor.value = r.style.color; if(routeLabel) routeLabel.value = r.style.label; }catch(_e){} }
+  if(btnApplyRouteStyle){ btnApplyRouteStyle.onclick = ()=>{ if(!editingMap) return; ensureRoutesStructure(editingMap); const r=editingMap.routes[currentRouteIndex]; r.style = r.style || {}; if(routeColor && routeColor.value) r.style.color = routeColor.value; if(routeLabel) r.style.label = (routeLabel.value||'').trim()||defaultRouteLabel(currentRouteIndex); drawMapCanvas(); }; }
+  if(btnRouteNewLeft){ btnRouteNewLeft.onclick = ()=>{ if(!editingMap) return; ensureRoutesStructure(editingMap); const newIndex=editingMap.routes.length; editingMap.routes.push({ id:'r'+(newIndex+1), points: [], style:{ color: defaultRouteColor(newIndex), label: defaultRouteLabel(newIndex) } }); currentRouteIndex=newIndex; syncRouteStyleInputs(); updateRouteIndexLabel(); drawMapCanvas(); const hint=document.getElementById('mapEditHint'); if(hint){ hint.textContent=`Ny startsträcka skapad: Start ${newIndex+1}.`; hint.style.color='#aaa'; } activeTool=null; highlightToolButton(); }; }
+  if(btnRoutePrev){ btnRoutePrev.onclick = ()=>{ if(!editingMap) return; ensureRoutesStructure(editingMap); currentRouteIndex = Math.max(0, currentRouteIndex-1); activeTool=null; highlightToolButton(); syncRouteStyleInputs(); updateRouteIndexLabel(); drawMapCanvas(); }; }
+  if(btnRouteNext){ btnRouteNext.onclick = ()=>{ if(!editingMap) return; ensureRoutesStructure(editingMap); currentRouteIndex = Math.min((editingMap.routes.length-1), currentRouteIndex+1); activeTool=null; highlightToolButton(); syncRouteStyleInputs(); updateRouteIndexLabel(); drawMapCanvas(); }; }
+  if(btnRouteRemoveLeft){ btnRouteRemoveLeft.onclick = ()=>{ if(!editingMap) return; ensureRoutesStructure(editingMap); if(editingMap.routes.length<=1){ alert('Minst en rutt krävs.'); return; } if(confirm('Ta bort vald rutt?')){ editingMap.routes.splice(currentRouteIndex,1); currentRouteIndex=Math.max(0,currentRouteIndex-1); syncRouteStyleInputs(); updateRouteIndexLabel(); drawMapCanvas(); } }; }
+      // Build panel UI
+      function renderBuildPanel(){
+        const list = document.getElementById('buildList'); if(!list) return; list.innerHTML='';
+        const btnPath = document.getElementById('btnToolPath');
+        function setActive(tool){ activeTool = tool; highlightToolButton(); }
+        if(btnPath){ btnPath.onclick = ()=> setActive(null); }
+        BUILD_ITEMS.forEach(item=>{
+          const el=document.createElement('div'); el.className='buildItem'; el.draggable=true; el.dataset.type=item.type;
+          el.innerHTML=`<div class="buildIcon">${item.icon||'+'}</div><div>${item.label}</div>`;
+          el.onclick=()=>{ setActive(item); Array.from(list.children).forEach(c=>c.classList.toggle('active', c===el)); };
+          el.addEventListener('dragstart', ev=>{ ev.dataTransfer?.setData('application/json', JSON.stringify({tool:item.type})); ev.dataTransfer?.setDragImage?.(el, 14, 14); activeTool=item; });
+          list.appendChild(el);
+        });
+      }
+      renderBuildPanel();
+      function highlightToolButton(){
+        const list = document.getElementById('buildList'); if(!list) return;
+        const btnPath = document.getElementById('btnToolPath');
+        Array.from(list.children).forEach(c=>c.classList.toggle('active', false));
+        if(btnPath){ btnPath.style.background = activeTool ? '#444' : '#2d6'; }
+      }
+      // Deprecated: hide old bridge button if present
+      const btnBridgeAdd = document.getElementById('btnBridgeAdd'); if(btnBridgeAdd) btnBridgeAdd.style.display='none';
+      let dragObjIdx = null; // dragging existing object index
       if (mapCanvas) {
+  mapCanvas.addEventListener('dragover', e=>{ if(activeTool){ e.preventDefault(); if(e.dataTransfer) e.dataTransfer.dropEffect='copy'; } });
+        mapCanvas.addEventListener('drop', e=>{
+          if(!editingMap || !activeTool) return; e.preventDefault();
+          const pos = getMousePos(e); const gp = editorToGame(pos.x,pos.y);
+          placeObjectAt(activeTool, gp.x, gp.y);
+        });
         mapCanvas.addEventListener('pointerdown', e => {
           if (!editingMap) return;
           const pos = getMousePos(e);
+          const snap = get('snapGrid').checked; const GRID=getGridSize();
+          // Click on another route to select it
+          if(!activeTool){
+            const hitRoute = hitTestRoute(pos.x,pos.y);
+            if(hitRoute!==-1 && hitRoute!==currentRouteIndex){ currentRouteIndex = hitRoute; syncRouteStyleInputs(); updateRouteIndexLabel(); drawMapCanvas(); return; }
+          }
+          // Object interaction first: start dragging existing object if hit
+          const hitObj = hitTestObject(pos.x,pos.y);
+          if(hitObj.index!==-1){ dragObjIdx = hitObj.index; dragIdx = null; dragOffset = hitObj.offset; return; }
+          // If a tool is active, place object by click
+          if(activeTool){ let ex=pos.x, ey=pos.y; if(snap){ ex=Math.round(ex/GRID)*GRID; ey=Math.round(ey/GRID)*GRID; } const gp=editorToGame(ex,ey); placeObjectAt(activeTool, gp.x, gp.y); return; }
             // Check if near an existing point (editor space)
-          for (let i=0;i<editingMap.points.length;i++){
-            const ed = scaleGameToEditor(editingMap.points[i]);
+          const ptsForHit = getActivePoints();
+          for (let i=0;i<ptsForHit.length;i++){
+            const ed = scaleGameToEditor(ptsForHit[i]);
             if(Math.hypot(ed.x-pos.x, ed.y-pos.y) < 10){
+              undoStack.push(JSON.parse(JSON.stringify(ptsForHit))); redoStack.length=0;
               dragIdx = i;
-              const gp = editingMap.points[i];
+              const gp = ptsForHit[i];
               const eg = editorToGame(pos.x,pos.y);
               dragOffset = { x: gp.x - eg.x, y: gp.y - eg.y };
               return;
             }
           }
-          // Insert a new point after nearest segment (or at end)
-          const clickG = editorToGame(pos.x,pos.y);
-          let insertIdx = editingMap.points.length;
-          let best = Infinity;
-          for(let i=0;i<editingMap.points.length-1;i++){
-            const a=editingMap.points[i], b=editingMap.points[i+1];
-            const dx=b.x-a.x, dy=b.y-a.y; const len2=dx*dx+dy*dy; let t=len2?((clickG.x-a.x)*dx + (clickG.y-a.y)*dy)/len2:0; t=Math.max(0,Math.min(1,t));
-            const px=a.x+t*dx, py=a.y+t*dy; const d=Math.hypot(clickG.x-px, clickG.y-py);
-            if(d<best){ best=d; insertIdx=i+1; }
+          // Insert behavior: append by default, hold Shift to insert into nearest segment
+          let ex = pos.x, ey = pos.y; if(snap){ ex = Math.round(ex/GRID)*GRID; ey = Math.round(ey/GRID)*GRID; }
+          const clickG = editorToGame(ex,ey);
+          undoStack.push(JSON.parse(JSON.stringify(ptsForHit))); redoStack.length=0;
+          const append = (document.getElementById('appendMode')?.checked)!==false && !e.shiftKey;
+          if(append){
+            ptsForHit.push(clampGame({x:clickG.x,y:clickG.y}));
+          } else {
+            let insertIdx = ptsForHit.length;
+            let best = Infinity;
+            for(let i=0;i<ptsForHit.length-1;i++){
+              const a=ptsForHit[i], b=ptsForHit[i+1];
+              const dx=b.x-a.x, dy=b.y-a.y; const len2=dx*dx+dy*dy; let t=len2?((clickG.x-a.x)*dx + (clickG.y-a.y)*dy)/len2:0; t=Math.max(0,Math.min(1,t));
+              const px=a.x+t*dx, py=a.y+t*dy; const d=Math.hypot(clickG.x-px, clickG.y-py);
+              if(d<best){ best=d; insertIdx=i+1; }
+            }
+            ptsForHit.splice(insertIdx,0, clampGame({x:clickG.x,y:clickG.y}));
           }
-          editingMap.points.splice(insertIdx,0, clampGame({x:clickG.x,y:clickG.y}));
+          setActivePoints(ptsForHit);
           drawMapCanvas();
         });
         mapCanvas.addEventListener('pointermove', e => {
-          if (!editingMap || dragIdx === null) return;
+          if (!editingMap || (dragIdx === null && dragObjIdx === null)) return;
           const pos = getMousePos(e);
-          const g = editorToGame(pos.x,pos.y);
-          editingMap.points[dragIdx] = clampGame({ x: g.x + dragOffset.x, y: g.y + dragOffset.y });
+          let ex = pos.x, ey = pos.y; const snap = get('snapGrid').checked; const GRID=getGridSize(); if(snap){ ex = Math.round(ex/GRID)*GRID; ey = Math.round(ey/GRID)*GRID; }
+          const g = editorToGame(ex,ey);
+          if(dragObjIdx!==null){ const nx = ex - dragOffset.x, ny = ey - dragOffset.y; const gp = editorToGame(nx, ny); moveObjectTo(dragObjIdx, gp.x, gp.y); drawMapCanvas(); return; }
+          const ptsMove = getActivePoints(); ptsMove[dragIdx] = clampGame({ x: g.x + dragOffset.x, y: g.y + dragOffset.y }); setActivePoints(ptsMove);
           drawMapCanvas();
         });
-        mapCanvas.addEventListener('pointerup', e => { dragIdx = null; });
-        mapCanvas.addEventListener('pointerleave', e => { dragIdx = null; });
+        mapCanvas.addEventListener('pointermove', e => {
+          if (!editingMap) return;
+          const pos = getMousePos(e); lastMouse = pos; hoverIdx = null; hoverSeg = null;
+          // hover object/route cursor feedback
+          const hit = hitTestObject(pos.x,pos.y);
+          const hr = hitTestRoute(pos.x,pos.y);
+          mapCanvas.style.cursor = (hit.index!==-1 || activeTool || (hr!==-1 && hr!==currentRouteIndex))? 'pointer':'default';
+          // hover point
+          const ptsHover=getActivePoints();
+          let minIdx=-1, minD=9999; for(let i=0;i<ptsHover.length;i++){ const ed = scaleGameToEditor(ptsHover[i]); const d=Math.hypot(ed.x-pos.x, ed.y-pos.y); if(d<minD){ minD=d; minIdx=i; } }
+          if(minD<12) hoverIdx=minIdx;
+          // hover segment
+          let bestSeg=-1, bestDist=9999; for(let i=0;i<ptsHover.length-1;i++){ const a=scaleGameToEditor(ptsHover[i]); const b=scaleGameToEditor(ptsHover[i+1]); const dx=b.x-a.x, dy=b.y-a.y; const len2=dx*dx+dy*dy; let t=len2?((pos.x-a.x)*dx + (pos.y-a.y)*dy)/len2:0; t=Math.max(0,Math.min(1,t)); const px=a.x+t*dx, py=a.y+t*dy; const d=Math.hypot(pos.x-px,pos.y-py); if(d<bestDist){ bestDist=d; bestSeg=i; } }
+          if(bestDist<10) hoverSeg=bestSeg; drawMapCanvas();
+        });
+        function hitTestRoute(ex,ey){
+          // Return index of a route (non-active preferred) whose polyline or points are near the cursor
+          if(!editingMap || !Array.isArray(editingMap.routes)) return -1;
+          const threshold = 10; // editor px
+          const order = [...editingMap.routes.keys()].sort((a,b)=> a===currentRouteIndex?1 : b===currentRouteIndex?-1 : 0);
+          for(const i of order){ const r = editingMap.routes[i]; const pts = Array.isArray(r.points)? r.points : []; if(pts.length<2) continue; const ed = pts.map(scaleGameToEditor);
+            // point proximity
+            for(const p of ed){ if(Math.hypot(p.x-ex,p.y-ey) < threshold) return i; }
+            // segment proximity
+            for(let j=0;j<ed.length-1;j++){ const a=ed[j], b=ed[j+1]; const dx=b.x-a.x, dy=b.y-a.y; const len2=dx*dx+dy*dy; let t=len2?(((ex-a.x)*dx + (ey-a.y)*dy)/len2):0; t=Math.max(0,Math.min(1,t)); const px=a.x+t*dx, py=a.y+t*dy; const d=Math.hypot(ex-px, ey-py); if(d<threshold) return i; }
+          }
+          return -1;
+        }
+      // Persist grid size
+      const gridSizeSel = document.getElementById('gridSize');
+      if(gridSizeSel){
+        const saved = localStorage.getItem('admin-grid-size-v2'); if(saved) gridSizeSel.value = saved; else gridSizeSel.value='2';
+        const clamp = v=> Math.max(1, Math.min(200, Math.round(v)));
+        const persist = ()=>{ gridSizeSel.value = String(clamp(parseInt(gridSizeSel.value||'2',10))); localStorage.setItem('admin-grid-size-v2', gridSizeSel.value); drawMapCanvas(); };
+        gridSizeSel.addEventListener('change', persist);
+        gridSizeSel.addEventListener('input', persist);
+        const btnDec = document.getElementById('gridDec');
+        const btnInc = document.getElementById('gridInc');
+        if(btnDec) btnDec.onclick = ()=>{ gridSizeSel.value = String(clamp(parseInt(gridSizeSel.value||'2',10) - 1)); persist(); };
+        if(btnInc) btnInc.onclick = ()=>{ gridSizeSel.value = String(clamp(parseInt(gridSizeSel.value||'2',10) + 1)); persist(); };
+      }
+        mapCanvas.addEventListener('pointerup', e => { dragIdx = null; dragObjIdx = null; });
+        mapCanvas.addEventListener('pointerleave', e => { dragIdx = null; dragObjIdx = null; });
         mapCanvas.addEventListener('contextmenu', e => {
           e.preventDefault();
           if (!editingMap) return;
           const pos = getMousePos(e);
+          // Delete object if right‑click on it
+          const hit = hitTestObject(pos.x,pos.y);
+          if(hit.index!==-1){ envObjects.splice(hit.index,1); drawMapCanvas(); return; }
           // Remove nearest point if close
           let minIdx = -1, minDist = 9999;
-          for (let i=0; i<editingMap.points.length; i++) {
-            const ed = scaleGameToEditor(editingMap.points[i]);
+          const ptsCtx=getActivePoints();
+          for (let i=0; i<ptsCtx.length; i++) {
+            const ed = scaleGameToEditor(ptsCtx[i]);
             const d = Math.hypot(ed.x-pos.x, ed.y-pos.y);
             if (d < minDist) { minDist = d; minIdx = i; }
           }
-          if (minDist < 12 && editingMap.points.length > 2) {
-            editingMap.points.splice(minIdx, 1);
+          if (minDist < 12 && ptsCtx.length > 2) {
+            undoStack.push(JSON.parse(JSON.stringify(ptsCtx))); redoStack.length=0;
+            ptsCtx.splice(minIdx, 1); setActivePoints(ptsCtx);
             drawMapCanvas();
           }
         });
+        mapCanvas.addEventListener('dblclick', e => { /* reserved for future inspect */ });
       }
-      // Initial render
-      renderMapsList();
-      console.log('Map admin UI loaded (file:// compatible)');
+      // Helpers for build panel/object handling
+      function placeObjectAt(tool, gx, gy){
+        if(!tool) return;
+        let obj=null;
+        if(tool.type==='bridge') obj = { type:'bridge', x: Math.max(PAD, Math.min(GAME_W-PAD-20, gx|0)), y: Math.max(PAD, Math.min(GAME_H-PAD-12, gy|0)), w: tool.size?.w||120, h: tool.size?.h||40 };
+        else if(tool.shape==='circle') obj = { type:tool.type, x: gx|0, y: gy|0, r: tool.size?.r||10, color: tool.color };
+        else obj = { type:tool.type, x: gx|0, y: gy|0, w: tool.size?.w||24, h: tool.size?.h||24, color: tool.color };
+        envObjects.push(obj); drawMapCanvas();
+      }
+      function hitTestObject(ex,ey){
+        // return {index, offset} where offset is editor‑space delta inside the object
+        if(!Array.isArray(envObjects)) return {index:-1, offset:{x:0,y:0}};
+        for(let i=envObjects.length-1;i>=0;i--){ const o=envObjects[i]; if(o.type==='bridge' || (o.w&&o.h)){ const ed=scaleGameToEditor({x:o.x,y:o.y}); const ew=(o.w||24)*EDIT_SCALE, eh=(o.h||24)*EDIT_SCALE; if(ex>=ed.x && ex<=ed.x+ew && ey>=ed.y && ey<=ed.y+eh) return {index:i, offset:{x: ex-ed.x, y: ey-ed.y}}; } else { const ed=scaleGameToEditor({x:o.x,y:o.y}); const r=((o.r||10)*EDIT_SCALE); if(Math.hypot(ed.x-ex, ed.y-ey) <= Math.max(6,r)) return {index:i, offset:{x: ex-ed.x, y: ey-ed.y}}; } }
+        return {index:-1, offset:{x:0,y:0}};
+      }
+      function moveObjectTo(idx, gx, gy){ const o=envObjects[idx]; if(!o) return; if(o.type==='bridge'||(o.w&&o.h)){ o.x = Math.max(PAD, Math.min(GAME_W-PAD-(o.w||0), gx)); o.y = Math.max(PAD, Math.min(GAME_H-PAD-(o.h||0), gy)); } else { o.x = Math.max(PAD, Math.min(GAME_W-PAD, gx)); o.y = Math.max(PAD, Math.min(GAME_H-PAD, gy)); } }
+      // Undo/Redo/Random seed
+  const btnUndo = get('btnUndo'), btnRedo = get('btnRedo'), btnRandSeed = get('btnRandSeed');
+      const btnUndoTop = get('btnUndoTop'), btnRedoTop = get('btnRedoTop');
+      if(btnUndo) btnUndo.onclick = ()=>{ if(undoStack.length){ const cur=getActivePoints(); redoStack.push(JSON.parse(JSON.stringify(cur))); setActivePoints(undoStack.pop()); drawMapCanvas(); } };
+      if(btnRedo) btnRedo.onclick = ()=>{ if(redoStack.length){ const cur=getActivePoints(); undoStack.push(JSON.parse(JSON.stringify(cur))); setActivePoints(redoStack.pop()); drawMapCanvas(); } };
+      if(btnUndoTop) btnUndoTop.onclick = ()=>{ if(undoStack.length){ const cur=getActivePoints(); redoStack.push(JSON.parse(JSON.stringify(cur))); setActivePoints(undoStack.pop()); drawMapCanvas(); } };
+      if(btnRedoTop) btnRedoTop.onclick = ()=>{ if(redoStack.length){ const cur=getActivePoints(); undoStack.push(JSON.parse(JSON.stringify(cur))); setActivePoints(redoStack.pop()); drawMapCanvas(); } };
+      if(btnRandSeed) btnRandSeed.onclick = ()=>{ const s=(Math.random()*2**31)|0; const seedInput=get('genSeed'); if(seedInput) { seedInput.value = String(s>>>0); } };
+
+      // Admin password controls
+      const btnSaveAdminPass = document.getElementById('btnSaveAdminPass');
+      const btnClearAdminPass = document.getElementById('btnClearAdminPass');
+      const newAdminPass = document.getElementById('newAdminPass');
+      const newAdminPass2 = document.getElementById('newAdminPass2');
+      updateAdminPassHint();
+      if(btnSaveAdminPass) btnSaveAdminPass.onclick = async ()=>{
+        const p1=newAdminPass?.value||''; const p2=newAdminPass2?.value||'';
+        if(!p1){ alert('Ange ett lösenord.'); return; }
+        if(p1!==p2){ alert('Lösenorden matchar inte.'); return; }
+        const h=await sha256Hex(p1); setStoredPassHash(h); updateAdminPassHint(); clearAuthed(); alert('Lösenord sparat. Gäller nästa gång du öppnar Admin.'); newAdminPass.value=''; newAdminPass2.value='';
+      };
+      if(btnClearAdminPass) btnClearAdminPass.onclick = ()=>{ if(confirm('Ta bort admin‑lösenord?')){ setStoredPassHash(''); updateAdminPassHint(); markAuthed(); alert('Lösenord borttaget.'); } };
+      // --- Generator & transform controls ---
+  function setPoints(newPts){ if(!editingMap) return; setActivePoints(newPts); editingMap.modified = Date.now(); drawMapCanvas(); }
+  const genPreset = get('genPreset'), genSeed = get('genSeed'), genComplexity = get('genComplexity'), genTargetDiff = get('genTargetDiff');
+  const btnGenRun = get('btnGenRun'), btnBuildToDiff = get('btnBuildToDiff'), btnAutoBuild = get('btnAutoBuild');
+      const trEps = get('trEps'), trSmoothIt = get('trSmoothIt'), trStep = get('trStep'), trJitterAmt = get('trJitterAmt');
+      const btnSimplify = get('btnSimplify'), btnSmooth = get('btnSmooth'), btnEqualize = get('btnEqualize'), btnJitter = get('btnJitter');
+      const btnReverse = get('btnReverse'), btnClose = get('btnClose');
+  const btnAutoOptimize = get('btnAutoOptimize');
+      function placeGeneratedPoints(pts){
+        if(!editingMap) return;
+        ensureRoutesStructure(editingMap);
+        // Always apply to the current route
+        editingMap.routes[currentRouteIndex].points = pts;
+        drawMapCanvas();
+      }
+      if (btnGenRun) btnGenRun.onclick = ()=>{
+        const preset = genPreset.value; const seed = parseInt(genSeed.value||'0',10); const complexity = parseInt(genComplexity.value||'2',10);
+        const pts = window.Maps.generatePresetPoints(preset, 1200, 800, 40, { seed, complexity });
+        placeGeneratedPoints(pts);
+      };
+      if (btnAutoBuild) btnAutoBuild.onclick = ()=>{
+        const preset = genPreset.value; const seed = parseInt(genSeed.value||'0',10); const complexity = parseInt(genComplexity.value||'2',10);
+        const eps = parseFloat(trEps?.value||'2'); const it = parseInt(trSmoothIt?.value||'0',10); const st = parseFloat(trStep?.value||'0');
+        const cur = getActivePoints();
+        const before = Array.isArray(cur) ? cur.slice() : [];
+        const pts = (window.Maps.autoBuildPath)
+          ? window.Maps.autoBuildPath(preset, 1200, 800, 40, { seed, complexity, epsilon: eps, smooth: it, step: st, minSegment: 2 })
+          : window.Maps.generatePresetPoints(preset, 1200, 800, 40, { seed, complexity });
+        placeGeneratedPoints(pts);
+        showDelta(before, pts, 'Auto‑bygg');
+      };
+      if (btnBuildToDiff) btnBuildToDiff.onclick = ()=>{
+        const preset = genPreset.value; const seed = parseInt(genSeed.value||'0',10); const complexity = parseInt(genComplexity.value||'2',10);
+        const target = parseFloat(genTargetDiff?.value||'5');
+        const eps = parseFloat(trEps?.value||'2'); const it = parseInt(trSmoothIt?.value||'1',10); const st = parseFloat(trStep?.value||'0');
+        const cur2 = getActivePoints();
+        const before = Array.isArray(cur2) ? cur2.slice() : [];
+        const pts = (window.Maps.autoBuildToDifficulty)
+          ? window.Maps.autoBuildToDifficulty(preset, 1200, 800, 40, { seed, complexity, target, tolerance: 0.5, epsilon: eps, smooth: it, step: st })
+          : window.Maps.autoBuildPath(preset, 1200, 800, 40, { seed, complexity, epsilon: eps, smooth: it, step: st });
+        placeGeneratedPoints(pts);
+        showDelta(before, pts, 'Bygg→svårighet');
+      };
+      if (btnAutoOptimize) btnAutoOptimize.onclick = ()=>{
+        const cur3=getActivePoints(); if(!Array.isArray(cur3) || cur3.length<2) return;
+        const eps = parseFloat(trEps?.value||'2'); const it = parseInt(trSmoothIt?.value||'0',10); const st = parseFloat(trStep?.value||'0');
+        const before = cur3.slice();
+        const pts = (window.Maps.optimizePath)
+          ? window.Maps.optimizePath(before, { epsilon: eps, smooth: it, step: st, minSegment: 2, collinearDeg: 179, bounds:{width:1200,height:800,pad:24} })
+          : before;
+        setPoints(pts);
+        showDelta(before, pts, 'Auto‑optimera');
+      };
+      if (btnSimplify) btnSimplify.onclick = ()=>{ const eps = parseFloat(trEps.value||'8'); setPoints(window.Maps.simplifyPath(getActivePoints(), eps)); };
+      if (btnSmooth) btnSmooth.onclick = ()=>{ const it = parseInt(trSmoothIt.value||'2',10); setPoints(window.Maps.smoothPath(getActivePoints(), it)); };
+      if (btnEqualize) btnEqualize.onclick = ()=>{ const st = parseFloat(trStep.value||'40'); setPoints(window.Maps.equalizeSpacing(getActivePoints(), st)); };
+      if (btnJitter) btnJitter.onclick = ()=>{ const amt = parseFloat(trJitterAmt.value||'6'); const seed = parseInt(genSeed.value||'0',10); setPoints(window.Maps.jitterPath(getActivePoints(), seed, amt)); };
+      if (btnReverse) btnReverse.onclick = ()=>{ setPoints(window.Maps.reversePath(getActivePoints())); };
+      if (btnClose) btnClose.onclick = ()=>{ setPoints(window.Maps.closeLoop(getActivePoints())); };
+  // ESC to exit object mode
+  window.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ activeTool=null; highlightToolButton(); }});
+      // --- Towers Admin ---
+      function loadTowerTypes(){ try{ const raw=JSON.parse(localStorage.getItem('td-settings-v1')||'{}'); return raw.TOWER_TYPES || {}; }catch(_e){ return {}; } }
+      function saveTowerTypes(T){ try{ const raw=JSON.parse(localStorage.getItem('td-settings-v1')||'{}'); raw.TOWER_TYPES = T; raw.ts = Date.now(); localStorage.setItem('td-settings-v1', JSON.stringify(raw)); }catch(_e){} }
+      function normalizeId(s){ return (s||'').toLowerCase().replace(/[^a-z0-9-]+/g,'-').replace(/(^-|-$)/g,''); }
+      function renderTowers(){
+        const list = document.getElementById('towersList'); const countEl=document.getElementById('towerCount'); if(!list) return;
+        const search = (document.getElementById('towerSearch')?.value||'').trim().toLowerCase();
+        const T = { ...window?.TOWER_TYPES, ...loadTowerTypes() };
+        // ensure built-ins present flags (cannot delete)
+        const items = Object.keys(T).map(k=>({ id:k, ...T[k] }));
+        items.sort((a,b)=> (a.builtIn===b.builtIn? 0 : a.builtIn? -1:1) || a.cost-b.cost || a.id.localeCompare(b.id));
+        const filtered = search? items.filter(t=> (t.id+' '+(t.label||'')).toLowerCase().includes(search)) : items;
+        list.innerHTML='';
+        filtered.forEach(t=>{
+          const card=document.createElement('div'); card.className='towerCard';
+          const isCore = ['cannon','rapid','splash','frost','poison','chain','spotter','bank'].includes(t.id) || !!t.builtIn;
+          card.innerHTML = `
+            <div class="towerHead">
+              <div class="swatch" style="background:${t.color||'#ccc'}"></div>
+              <div style="flex:1">
+                <div><strong>${t.label||t.id}</strong> <span class="badge">${t.id}</span> ${t.builtIn?'<span class="badge">inbyggt</span>':''}</div>
+                <div class="tinyHint">${t.income? '💰 Banktorn' : '🎯 Stridstorn'}</div>
+              </div>
+              ${isCore? '' : '<button class="btnDel" style="background:#b33">Ta bort</button>'}
+            </div>
+            <div class="towerGrid">
+              <label>Tornnamn<input class="f-label" value="${t.label||''}" placeholder="Visningsnamn" title="Visningsnamn som syns i spelet" /></label>
+              <label>Färg<input class="f-color" type="color" value="${t.color||'#cccccc'}" title="Tornets färg" /></label>
+              <label>Pris (pengar)<input class="f-cost" type="number" value="${t.cost||0}" min="0" step="1" placeholder="80" title="Kostnad att bygga i pengar" /></label>
+              <label>Räckvidd (px)<input class="f-range" type="number" value="${t.range||0}" min="0" step="1" placeholder="90" title="Skjutradiens storlek i pixlar" /></label>
+              <label>Skada (per träff)<input class="f-dmg" type="number" value="${t.dmg||0}" min="0" step="0.1" placeholder="6" title="Bas‑skada per projektil" /></label>
+              <label>Eldhast (sek)<input class="f-rate" type="number" step="0.05" value="${t.fireRate||1}" min="0.05" placeholder="0.9" title="Sekunder mellan skott — lägre är snabbare" /></label>
+              <label>Sälj‑faktor (0–1)<input class="f-sell" type="number" step="0.05" value="${t.sellFactor??0.7}" min="0" max="1" placeholder="0.7" title="Andel av priset du får tillbaka vid försäljning" /></label>
+              <label>Inkomst/våg<input class="f-income" type="number" step="1" value="${t.income||''}" min="0" placeholder="Endast bank" title="Banktorn tjänar detta per våg" /></label>
+            </div>
+            <details class="adv"><summary>Avancerat</summary>
+              <div class="towerGrid" style="margin-top:6px">
+                <label>AOE‑radie (px)<input class="f-aoe" type="number" min="0" step="1" value="${t.aoe||''}" placeholder="Splash‑radie" title="Area‑skada: radien kring träffen" /></label>
+                <label>Slow‑faktor (×)<input class="f-slow" type="number" step="0.01" min="0.1" max="1" value="${t.slow||''}" placeholder="0.6" title="Hastighetsmultiplikator: 0.6 = 40% långsammare" /></label>
+                <label>Slow‑tid (s)<input class="f-slowTime" type="number" step="0.1" value="${t.slowTime||''}" placeholder="1.6" title="Hur länge slow effekten varar" /></label>
+                <label>DOT DPS<input class="f-dot" type="number" step="0.1" value="${t.dot||''}" placeholder="2" title="Poison: skada per sekund" /></label>
+                <label>DOT‑tid (s)<input class="f-dotTime" type="number" step="0.1" value="${t.dotTime||''}" placeholder="2.5" title="Poison: varaktighet i sekunder" /></label>
+                <label>Crit‑chans<input class="f-critChance" type="number" step="0.001" value="${t.critChance||''}" placeholder="0.05" title="Sannolikhet 0..1" /></label>
+                <label>Crit‑mult<input class="f-critMult" type="number" step="0.1" value="${t.critMult||''}" placeholder="1.5" title="Skademultiplikator vid crit" /></label>
+                <label>Kedja: max träffar<input class="f-chainMax" type="number" step="1" value="${(t.chain&&t.chain.max)||''}" placeholder="4" title="Antal fiender blixten kan studsa till" /></label>
+                <label>Kedja: räckvidd<input class="f-chainRange" type="number" step="1" value="${(t.chain&&t.chain.range)||''}" placeholder="120" title="Max avstånd mellan studsar" /></label>
+                <label>Kedja: falloff<input class="f-chainFalloff" type="number" step="0.01" value="${(t.chain&&t.chain.falloff)||''}" placeholder="0.7" title="Skada × falloff för varje studs" /></label>
+                <label>Mark: dmg‑mult<input class="f-markMult" type="number" step="0.01" value="${(t.mark&&t.mark.mult)||''}" placeholder="1.2" title="Märkta fiender tar mer skada" /></label>
+                <label>Mark: tid (s)<input class="f-markDuration" type="number" step="0.1" value="${(t.mark&&t.mark.duration)||''}" placeholder="2.5" title="Hur länge markeringen varar" /></label>
+                <label>Reveal stealth<input class="f-reveal" type="checkbox" ${t.reveal?'checked':''} title="Kan se och markera stealth‑fiender" /></label>
+              </div>
+            </details>
+            <div class="towerFooter">
+              <button class="btnSave" title="Spara ändringarna för detta torn">Spara</button>
+              <button class="btnReset" style="background:#444" title="Återställ fält till senast sparade värden">Återställ</button>
+            </div>
+          `;
+          // wiring
+          const TAll = { ...loadTowerTypes() };
+          const saveBtn = card.querySelector('.btnSave');
+          const resetBtn = card.querySelector('.btnReset');
+          const delBtn = card.querySelector('.btnDel');
+          const q = sel => card.querySelector(sel);
+          const applySave = ()=>{
+            const merged = { ...(TAll[t.id]||{}), id: t.id };
+            merged.label = q('.f-label')?.value||t.label||t.id;
+            merged.color = q('.f-color')?.value||t.color||'#ccc';
+            const num = (sel)=>{ const v=parseFloat(q(sel)?.value||''); return isNaN(v)? undefined : v; };
+            merged.cost = num('.f-cost') ?? t.cost ?? 50;
+            merged.range = num('.f-range') ?? t.range ?? 80;
+            merged.dmg = num('.f-dmg') ?? t.dmg ?? 5;
+            merged.fireRate = num('.f-rate') ?? t.fireRate ?? 1;
+            merged.sellFactor = num('.f-sell') ?? (t.sellFactor??0.7);
+            merged.income = num('.f-income') ?? t.income;
+            merged.aoe = num('.f-aoe') ?? t.aoe;
+            merged.slow = num('.f-slow') ?? t.slow;
+            merged.slowTime = num('.f-slowTime') ?? t.slowTime;
+            merged.dot = num('.f-dot') ?? t.dot;
+            merged.dotTime = num('.f-dotTime') ?? t.dotTime;
+            merged.critChance = num('.f-critChance') ?? t.critChance;
+            merged.critMult = num('.f-critMult') ?? t.critMult;
+            const cMax = num('.f-chainMax'); const cRange=num('.f-chainRange'); const cFall=num('.f-chainFalloff');
+            if(cMax||cRange||cFall){ merged.chain = { ...(t.chain||{}), ...(merged.chain||{}), ...(cMax?{max:cMax}:{}) , ...(cRange?{range:cRange}:{}) , ...(cFall?{falloff:cFall}:{}) }; }
+            const mMul = num('.f-markMult'); const mDur = num('.f-markDuration');
+            if(mMul||mDur){ merged.mark = { ...(t.mark||{}), ...(merged.mark||{}), ...(mMul?{mult:mMul}:{}) , ...(mDur?{duration:mDur}:{}) }; }
+            merged.reveal = !!q('.f-reveal')?.checked;
+            TAll[t.id] = merged; saveTowerTypes(TAll); renderTowers();
+          };
+          saveBtn.onclick = applySave; resetBtn.onclick = renderTowers; if(delBtn){ delBtn.onclick = ()=>{ const TLocal=loadTowerTypes(); delete TLocal[t.id]; saveTowerTypes(TLocal); renderTowers(); }; }
+          list.appendChild(card);
+        });
+        if(countEl) countEl.textContent = `${filtered.length} torn`;
+      }
+      const towerSearch = document.getElementById('towerSearch'); if(towerSearch){ towerSearch.addEventListener('input', ()=> renderTowers()); }
+      const btnAddTower = document.getElementById('btnAddTower');
+      if(btnAddTower){ btnAddTower.onclick = ()=>{
+        const id = normalizeId(document.getElementById('newId')?.value||document.getElementById('newName')?.value||'');
+        if(!id){ alert('Ange id eller namn.'); return; }
+        const name = document.getElementById('newName')?.value||id; const cost=+document.getElementById('newCost')?.value||50; const range=+document.getElementById('newRange')?.value||80; const dmg=+document.getElementById('newDmg')?.value||5; const rate=parseFloat(document.getElementById('newRate')?.value||'1'); const color=document.getElementById('newColor')?.value||'#ccc'; const sell=parseFloat(document.getElementById('newSell')?.value||'0.7');
+        const T = loadTowerTypes(); if(T[id]){ alert('Id används redan.'); return; }
+        T[id] = { id, label:name, cost, range, dmg, fireRate: rate, color, sellFactor: sell };
+        saveTowerTypes(T); document.getElementById('newId').value=''; document.getElementById('newName').value=''; renderTowers();
+      }; }
+      const btnExportTowers = document.getElementById('btnExportTowers'); const btnImportTowers=document.getElementById('btnImportTowers'); const towerXmlFile=document.getElementById('towerXmlFile');
+      if(btnExportTowers){ btnExportTowers.onclick = ()=>{
+        try{ const raw=JSON.parse(localStorage.getItem('td-settings-v1')||'{}'); const blob = new Blob([JSON.stringify({ TOWER_TYPES: raw.TOWER_TYPES||{} }, null, 2)], {type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='towers.json'; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},0); }catch(_e){}
+      }; }
+      if(btnImportTowers && towerXmlFile){ btnImportTowers.onclick = ()=> towerXmlFile.click(); towerXmlFile.onchange = (e)=>{ const f=e.target.files?.[0]; if(!f) return; const r=new FileReader(); r.onload = ()=>{ try{ const data=JSON.parse(r.result); if(data && data.TOWER_TYPES){ saveTowerTypes(data.TOWER_TYPES); renderTowers(); } }catch(_e){ alert('Ogiltig fil.'); } }; r.readAsText(f); } };
+      // Initialize towers panel immediately so it is ready on tab switch
+      renderTowers();
+
+      // Top category tabs (Inställningar/Torn/Kartor)
+      const topTabs = Array.from(document.querySelectorAll('.topTab'));
+      function showCols(key){
+        const cols = ['colSettings','colTowers','colMaps'];
+        cols.forEach(c=>{
+          const els = Array.from(document.querySelectorAll('.'+c));
+          els.forEach(el=> el.style.display = (c===key)? '' : 'none');
+        });
+        topTabs.forEach(b=> b.classList.toggle('active', b.dataset.show===key));
+        const grid = document.getElementById('mainGrid');
+        if(grid){ grid.style.gridTemplateColumns = '1fr'; }
+      }
+      topTabs.forEach(b=> b.onclick=()=> showCols(b.dataset.show));
+  showCols('colSettings');
+      // Auto-name generator
+      const btnAutoName = get('btnAutoName');
+      if(btnAutoName) btnAutoName.onclick = ()=>{
+        const adjectives=['Mystisk','Vild','Mjuk','Krokig','Lugn','Skum','Frostig','Stekhet','Söt','Salt','Tyst','Rasande','Dimmig','Klar','Maffig'];
+        const nouns=['Dal','Flod','Stig','Ring','Labyrint','Ö','Bukt','Ravin','Öken','Skog','Klyfta','Kammare','Gränd','Kanal','Slinga'];
+        const a = adjectives[Math.floor(Math.random()*adjectives.length)];
+        const n = nouns[Math.floor(Math.random()*nouns.length)];
+        mapName.value = `${a} ${n}`;
+      };
+      // Auto-ID generator
+      const btnAutoId = get('btnAutoId');
+      if(btnAutoId) btnAutoId.onclick = ()=>{
+        const base = (mapName.value.trim() || 'ny-karta').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
+        const suffix = Math.floor(Math.random()*9999).toString(36);
+        mapIdInput.value = `${base}-${suffix}`;
+      };
+      // Smart description suggestion
+      const btnSmartDesc = get('btnSmartDesc');
+      if(btnSmartDesc) btnSmartDesc.onclick = ()=>{
+        const pts = getActivePoints();
+        if(!Array.isArray(pts) || pts.length<2){ mapDesc.value='En enkel väg.'; return; }
+        let len=0; let bends=0; for(let i=0;i<pts.length-1;i++){ const a=pts[i], b=pts[i+1]; len += Math.hypot(b.x-a.x, b.y-a.y); if(i<pts.length-2){ const c=pts[i+2]; const ang = Math.atan2(c.y-b.y, c.x-b.x) - Math.atan2(b.y-a.y, b.x-a.y); const turn = Math.abs((ang+Math.PI*3)%(Math.PI*2)-Math.PI); if(turn>0.3) bends++; } }
+        const style = bends>20? 'slingrande' : bends>8? 'kurvig' : 'mjuk';
+        const scale = len>2500? 'lång' : len>1500? 'medellång' : 'kort';
+        mapDesc.value = `En ${style} och ${scale} bana med ${pts.length} punkter.`;
+      };
+      // Warp transform
+      const trWarpAmt = get('trWarpAmt'), btnWarp = get('btnWarp');
+  if(btnWarp) btnWarp.onclick = ()=>{ const amt=parseFloat(trWarpAmt.value||'8'); const seed=parseInt(get('genSeed').value||'0',10); setPoints(window.Maps.warpPath(getActivePoints(), seed, amt, 0.08)); };
+  // Tabs
+  const tabs = Array.from(document.querySelectorAll('.tabBtn'));
+  function showTab(id){
+    ['tabGen','tabTrans','tabGeo','tabClipboard','tabMapCfg','tabInfo'].forEach(t=>{ const el=get(t); if(el) el.style.display = (t===id)? '' : 'none'; });
+    tabs.forEach(b=> b.style.background = (b.dataset.tab===id)? '#2d6' : '#2a2a2a');
+    const designer = document.getElementById('mapDesigner');
+    if(designer) designer.style.display = (id==='tabMapCfg') ? 'none' : '';
+  if(typeof updateRouteIndexLabel==='function') updateRouteIndexLabel();
+  }
+  tabs.forEach(btn=> btn.onclick = ()=> showTab(btn.dataset.tab));
+  showTab('tabGen');
+  // Geometry
+  const btnFlipH = get('btnFlipH'), btnFlipV = get('btnFlipV'), rotDeg = get('rotDeg'), btnRotate = get('btnRotate'), scaleF = get('scaleF'), btnScale=get('btnScale'), btnSnapEnds = get('btnSnapEnds');
+  if(btnFlipH) btnFlipH.onclick = ()=> setPoints(window.Maps.flipPoints(getActivePoints(), 1200, 800, 'h'));
+  if(btnFlipV) btnFlipV.onclick = ()=> setPoints(window.Maps.flipPoints(getActivePoints(), 1200, 800, 'v'));
+  if(btnRotate) btnRotate.onclick = ()=>{ const d=parseFloat(rotDeg.value||'0'); setPoints(window.Maps.rotatePoints(getActivePoints(), d, 1200, 800)); };
+  if(btnScale) btnScale.onclick = ()=>{ const f=parseFloat(scaleF.value||'1'); setPoints(window.Maps.scalePoints(getActivePoints(), f, 1200, 800)); };
+  if(btnSnapEnds) btnSnapEnds.onclick = ()=> setPoints(window.Maps.snapEndpointsToEdges(getActivePoints(), 1200, 800, 24));
+  // Clipboard
+  const btnCopy = get('btnCopy'), btnPaste = get('btnPaste');
+  if(btnCopy) btnCopy.onclick = async ()=>{ try { await navigator.clipboard.writeText(JSON.stringify(getActivePoints())); mapEditHint.textContent='Punkter kopierade till urklipp.'; } catch { mapEditHint.textContent='Kunde inte kopiera till urklipp.'; } };
+  if(btnPaste) btnPaste.onclick = async ()=>{ try { const t=await navigator.clipboard.readText(); const pts=JSON.parse(t); if(Array.isArray(pts) && pts.length){ setPoints(pts.map(p=>({x:+p.x,y:+p.y}))); } } catch { mapEditHint.textContent='Klistra in misslyckades.'; } };
+  // Initial render + resize handling
+  const onResize = ()=>{ ensureCanvasResolution(); drawMapCanvas(); };
+  window.addEventListener('resize', onResize);
+  // Load current settings into form and wire save
+  try{
+    const raw = JSON.parse(localStorage.getItem('td-settings-v1')||'{}');
+    const st = raw.Settings||{}; const v = id=>document.getElementById(id);
+    if(v('adminMaxSpeed')) v('adminMaxSpeed').value = String(st.maxSpeed ?? 5);
+    // Load Visuals/Audio/Settings into form
+  const vis = raw.Visuals||{}; const au = raw.Audio||{};
+    const bm = st.buildMode || 'paint'; const showGrid = (vis.showGrid!==false);
+    if(v('uiShowGrid')) v('uiShowGrid').value = showGrid ? '1' : '0';
+  const sdn = (vis.showDamageNumbers!==false);
+  const sdnEl = v('showDmgNums'); if(sdnEl) sdnEl.checked = sdn;
+    const rfx = !!vis.reducedFX; const rfxEl = v('reducedFX'); if(rfxEl) rfxEl.checked = rfx;
+    const bmEl = v('buildMode'); if(bmEl) bmEl.value = bm;
+    const muteEl = v('mute'); if(muteEl) muteEl.checked = !!au.muted;
+  }catch(_e){}
+  const btnSave = document.getElementById('btnSave');
+  if(btnSave) btnSave.onclick = ()=>{
+    try{
+      const raw = JSON.parse(localStorage.getItem('td-settings-v1')||'{}');
+      raw.Admin = raw.Admin || {}; raw.Settings = raw.Settings || {}; raw.Visuals = raw.Visuals || {}; raw.MapSettings = raw.MapSettings || {};
+  raw.Settings.maxSpeed = parseInt(document.getElementById('adminMaxSpeed')?.value||'5',10);
+      // Persist Visuals + build mode + audio
+      const showGridSel = document.getElementById('uiShowGrid');
+      raw.Visuals.showGrid = (showGridSel?.value||'1') === '1';
+  const sdnEl = document.getElementById('showDmgNums');
+  raw.Visuals.showDamageNumbers = !!(sdnEl?.checked);
+      const rfxEl = document.getElementById('reducedFX');
+      raw.Visuals.reducedFX = !!(rfxEl?.checked);
+      const bmEl = document.getElementById('buildMode');
+      if(bmEl && bmEl.value) raw.Settings.buildMode = bmEl.value;
+      const muteEl = document.getElementById('mute');
+      raw.Audio = raw.Audio || {};
+      raw.Audio.muted = !!(muteEl?.checked);
+      raw.ts = Date.now();
+      
+      localStorage.setItem('td-settings-v1', JSON.stringify(raw));
+      alert('Inställningar sparade.');
+    }catch(e){ alert('Kunde inte spara inställningar.'); }
+  };
+  // Persist "Enkel rendering"
+  const simpleRender = get('simpleRender');
+  if(simpleRender){
+    const savedSR = localStorage.getItem('admin-simple-render');
+    if(savedSR!==null) simpleRender.checked = savedSR==='1';
+    simpleRender.addEventListener('change', ()=>{ localStorage.setItem('admin-simple-render', simpleRender.checked?'1':'0'); drawMapCanvas(); });
+  }
+  renderMapsList();
+  ensureCanvasResolution();
+  console.log('Map admin UI loaded (file:// compatible)');
+  // Old Towers panel wiring removed: using the new labeled card UI above.
     };
   </script>
 </body>

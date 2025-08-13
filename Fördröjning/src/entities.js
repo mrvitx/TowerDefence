@@ -9,7 +9,8 @@ export class Enemy{
   this.hp=hp; this.maxHp=hp; this.speed=speed; this.worth=worth;
   // spline-based travel along distance s on centerline with lane offset
   this.s=0; { const r = (State.rng?.random?.()||Math.random()); this.lane = ((r<0.5)?-1:1) * 6; } // subtle lane offset
-  const p0 = sampleAt(0, this.lane); this.pos={x:p0.x,y:p0.y}; this.reached=false; this.slow=1;
+  this.pathIndex = 0; // multi-route index (set by spawner)
+  const p0 = sampleAt(0, this.lane, this.pathIndex); this.pos={x:p0.x,y:p0.y}; this.reached=false; this.slow=1;
   this._carry=0; // legacy
   this._poison = null; // {dps, until}
   this._markedUntil = 0; // mark debuff (spotter)
@@ -25,7 +26,7 @@ export class Enemy{
   // Poison tick
   if(this._poison){ this.hp -= this._poison.dps * dt; if(performance.now() >= this._poison.until){ this._poison=null; } }
     const step = dt * Settings.gameSpeed * this.speed * this.slow;
-    this.s += step; const p = sampleAt(this.s, this.lane); this.pos.x=p.x; this.pos.y=p.y; if(this.s >= totalLen-2){ this.reached=true; }
+  this.s += step; const p = sampleAt(this.s, this.lane, this.pathIndex||0); this.pos.x=p.x; this.pos.y=p.y; if(this.s >= totalLen-2){ this.reached=true; }
   }
   draw(ctx){
   const now = performance.now();
@@ -58,6 +59,8 @@ export class Tower{
   this._waveDamage = 0;
   this._kills = 0;
   this._waveKills = 0;
+  // FX
+  this._muzzleT = 0; // seconds remaining for muzzle flash
     // Map modifiers
     const c = Math.floor(this.x / TILE), r = Math.floor(this.y / TILE);
     this._boost = Array.isArray(MapModifiers?.boostPads) && MapModifiers.boostPads.some(t=>t.c===c && t.r===r);
@@ -110,6 +113,8 @@ export class Tower{
   update(dt, enemies, projectiles, spatial){
     // Banks (income towers) do not attack
     if(this.def.income){ return; }
+  // Decay muzzle flash FX
+  if(this._muzzleT>0){ this._muzzleT = Math.max(0, this._muzzleT - dt * Settings.gameSpeed); }
     this.timer -= dt * Settings.gameSpeed;
     // Re-scan less often using spatial hash to reduce O(N^2)
     this._scanCooldown -= dt * Settings.gameSpeed;
@@ -119,10 +124,12 @@ export class Tower{
       else { this._candidates = enemies; }
       this._scanCooldown = Math.max(0.05, stats.fireRate * 0.5);
     }
-    if(this.timer <= 0){
+  if(this.timer <= 0){
       const source = this._candidates || enemies;
       const target = this._pickTarget(source, stats);
       if(target){
+    // Remember aim direction for muzzle FX
+    const vx = target.pos.x - this.x, vy = target.pos.y - this.y; const vlen = Math.hypot(vx,vy)||1; this._muzzleDir = { x: vx/vlen, y: vy/vlen };
         if(this.def.aoe) projectiles.push(new Projectile(this.x,this.y,target,stats.dmg * dmgMult(target),'splash',this.def.aoe,1,0,this));
         else if(this.def.slow) projectiles.push(new Projectile(this.x,this.y,target,stats.dmg * dmgMult(target),'frost',0,this.def.slow,this.def.slowTime||1.2,this));
         else if(this.def.dot) { const p=new Projectile(this.x,this.y,target,stats.dmg * dmgMult(target),'poison',0,1,0,this); p.dotDps=this.def.dot; p.dotTime=(this.def.dotTime||2.5)*1000; projectiles.push(p); }
@@ -133,6 +140,8 @@ export class Tower{
           p.critChance = (this.def.critChance||0); p.critMult=(this.def.critMult||1.5);
           projectiles.push(p);
         }
+    // Trigger muzzle flash briefly (reduced on reducedFX)
+    this._muzzleT = Visuals.reducedFX ? 0.04 : 0.09;
         this.timer = stats.fireRate;
       }
     }
@@ -154,15 +163,39 @@ export class Tower{
       ctx.fillStyle='#000'; ctx.font='bold 12px system-ui'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('¤', this.x, this.y-2);
       ctx.restore();
     } else {
+      // Base
       ctx.fillStyle=this.def.color; ctx.beginPath(); ctx.arc(this.x,this.y,18,0,Math.PI*2); ctx.fill();
+      // Barrel
       ctx.fillStyle='#111'; ctx.fillRect(this.x-8,this.y-6,16,12);
+      // Muzzle flash
+      if(this._muzzleT>0 && !Visuals.reducedFX){
+        const t = this._muzzleT; const dir = this._muzzleDir || {x:1,y:0};
+        const len = 18 + 18 * (t/0.09);
+        const w = 6 * (t/0.09);
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        const ang = Math.atan2(dir.y, dir.x);
+        ctx.rotate(ang);
+        ctx.globalCompositeOperation='lighter';
+        const grad = ctx.createLinearGradient(0,0,len,0);
+        grad.addColorStop(0, 'rgba(255,255,200,0.9)');
+        grad.addColorStop(1, 'rgba(255,180,80,0.0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.moveTo(10, -w);
+        ctx.lineTo(len, 0);
+        ctx.lineTo(10, w);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
     }
     const lvl=this.levels.dmg+this.levels.range+this.levels.rate; if(lvl>0){ ctx.fillStyle='gold'; ctx.beginPath(); ctx.arc(this.x+12,this.y-12,6,0,Math.PI*2); ctx.fill(); ctx.fillStyle='#000'; ctx.font='10px monospace'; ctx.fillText(lvl,this.x+10,this.y-9); }
   }
 }
 
 export class Projectile{
-  constructor(x,y,target,dmg,type='bullet',aoe=0,slowFactor=1, slowTime=0, sourceTower=null){ this.x=x; this.y=y; this.target=target; this.dmg=dmg; this.type=type; this.aoe=aoe; this.slowFactor=slowFactor; this.slowTime=slowTime; this.speed=520; this.hit=false; this.lost=false; this.critChance=0; this.critMult=1.5; this._source=sourceTower; }
+  constructor(x,y,target,dmg,type='bullet',aoe=0,slowFactor=1, slowTime=0, sourceTower=null){ this.x=x; this.y=y; this.target=target; this.dmg=dmg; this.type=type; this.aoe=aoe; this.slowFactor=slowFactor; this.slowTime=slowTime; this.speed=520; this.hit=false; this.lost=false; this.critChance=0; this.critMult=1.5; this._source=sourceTower; this.trail=[]; this._arcFX=null; }
   update(dt, enemies){
     if(!this.target || this.target.reached || this.target.hp<=0){ this.lost=true; return; }
     const dx=this.target.pos.x-this.x, dy=this.target.pos.y-this.y; const d=Math.hypot(dx,dy);
@@ -186,7 +219,7 @@ export class Projectile{
         }
         return {dmg:base, crit:false};
       };
-  if(this.type==='splash'){ for(const e of enemies){ if(dist(e.pos,this.target.pos) <= this.aoe){ e.hp -= this.dmg; e._lastHitBy = this._source || e._lastHitBy; addDn(e,this.dmg,'#ffb'); if(this._source) this._source._logDamage(this.dmg); } } }
+  if(this.type==='splash'){ for(const e of enemies){ if(dist(e.pos,this.target.pos) <= this.aoe){ e.hp -= this.dmg; e._lastHitBy = this._source || e._lastHitBy; addDn(e,this.dmg,'#ffb'); if(this._source) this._source._logDamage(this.dmg); } } this._fx = {t:0,x:this.target.pos.x,y:this.target.pos.y, r:12, col:'rgba(255,200,150,0.35)'}; }
       else if(this.type==='frost'){
   this.target.hp -= this.dmg; this.target._lastHitBy = this._source || this.target._lastHitBy; addDn(this.target,this.dmg,'#bdf'); if(this._source) this._source._logDamage(this.dmg);
         if(!this.target.immuneSlow){
@@ -195,17 +228,20 @@ export class Projectile{
           // simple timeout via flag check in update; not using setTimeout to keep deterministic
           this.target._slowUntil = Math.max(this.target._slowUntil||0, resetAt);
         }
+        this._fx = {t:0,x:this.target.pos.x,y:this.target.pos.y, r:12, col:'rgba(160,220,255,0.35)'};
       }
       else if(this.type==='chain'){
         // deal to primary
   this.target.hp -= this.dmg; this.target._lastHitBy = this._source || this.target._lastHitBy; addDn(this.target,this.dmg,'#cdf'); if(this._source) this._source._logDamage(this.dmg);
         // jump to nearby enemies up to max
         let prev = this.target; let remain = Math.max(0, (this.chain?.max||0)-1); let dmg=this.dmg; const range=this.chain?.range||100; const fall=this.chain?.falloff||0.7;
+        const segs = [];
         const used = new Set([prev]);
         while(remain>0){
           let best=null, bestD=1e9;
           for(const e of enemies){ if(!e||e.reached||used.has(e)) continue; const dd=dist(prev.pos,e.pos); if(dd<=range && dd<bestD){ best=e; bestD=dd; } }
-          if(!best) break; dmg*=fall; best.hp -= dmg; addDn(best,dmg,'#cfe'); if(this._source) this._source._logDamage(dmg); used.add(best); prev=best; remain--; }
+          if(!best) break; segs.push({a:{x:prev.pos.x,y:prev.pos.y}, b:{x:best.pos.x,y:best.pos.y}}); dmg*=fall; best.hp -= dmg; addDn(best,dmg,'#cfe'); if(this._source) this._source._logDamage(dmg); used.add(best); prev=best; remain--; }
+        if(segs.length){ this._arcFX = { t: 0, segs }; }
       }
       else if(this.type==='mark'){
         const now=performance.now(); this.target._markedUntil=Math.max(this.target._markedUntil||0, now + (this.mark?.duration||2.5)*1000);
@@ -217,6 +253,7 @@ export class Projectile{
         const dps = this.dotDps || 2; const dur = this.dotTime || 2500;
         const until = now + dur;
         this.target._poison = { dps, until: Math.max(until, (this.target._poison?.until||0)) };
+        this._fx = {t:0,x:this.target.pos.x,y:this.target.pos.y, r:12, col:'rgba(160,255,160,0.35)'};
       }
       else {
         const res = applyCrit(this.dmg);
@@ -227,9 +264,25 @@ export class Projectile{
       this.hit=true; return;
     }
     const step = this.speed * dt * Settings.gameSpeed;
+    // Trail: record previous positions
+    if(!Visuals.reducedFX){ this.trail.push({x:this.x,y:this.y, a:1}); if(this.trail.length>8) this.trail.shift(); }
     this.x += dx/d * step; this.y += dy/d * step;
   }
-  draw(ctx){ let col='#ffd'; if(this.type==='splash') col='#faa'; if(this.type==='frost') col='#9ef'; if(this.type==='poison') col='#9f9'; if(this.type==='chain') col='#cdf'; if(this.type==='mark') col='#ffb'; ctx.fillStyle=col; ctx.beginPath(); ctx.arc(this.x,this.y,4,0,Math.PI*2); ctx.fill(); if(this._fx){ this._fx.t+=1/60; const a=Math.max(0,1-this._fx.t*2); if(a>0){ ctx.save(); ctx.globalAlpha=a; ctx.strokeStyle=this._fx.col; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(this._fx.x,this._fx.y, this._fx.r*(1+this._fx.t*2), 0, Math.PI*2); ctx.stroke(); ctx.restore(); } else { this._fx=null; } } }
+  draw(ctx){
+    let col='#ffd'; if(this.type==='splash') col='#faa'; if(this.type==='frost') col='#9ef'; if(this.type==='poison') col='#9f9'; if(this.type==='chain') col='#cdf'; if(this.type==='mark') col='#ffb';
+    // Trail
+    if(!Visuals.reducedFX && this.trail && this.trail.length>1){
+      ctx.save(); ctx.globalAlpha=0.5; ctx.strokeStyle=col; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(this.trail[0].x, this.trail[0].y); for(let i=1;i<this.trail.length;i++){ ctx.lineTo(this.trail[i].x, this.trail[i].y); } ctx.stroke(); ctx.restore();
+    }
+    // Body
+    ctx.fillStyle=col; ctx.beginPath(); ctx.arc(this.x,this.y,4,0,Math.PI*2); ctx.fill();
+    // Hit FX ring
+    if(this._fx){ this._fx.t+=1/60; const a=Math.max(0,1-this._fx.t*2); if(a>0){ ctx.save(); ctx.globalAlpha=a; ctx.strokeStyle=this._fx.col; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(this._fx.x,this._fx.y, this._fx.r*(1+this._fx.t*2), 0, Math.PI*2); ctx.stroke(); ctx.restore(); } else { this._fx=null; } }
+    // Chain arcs FX
+    if(this._arcFX && !Visuals.reducedFX){ this._arcFX.t += 1/60; const a=Math.max(0,1-this._arcFX.t*3); if(a>0){ ctx.save(); ctx.globalAlpha=a; ctx.strokeStyle='#cfe'; ctx.lineWidth=2; ctx.shadowColor='#9ff'; ctx.shadowBlur=8; for(const s of this._arcFX.segs){ ctx.beginPath(); // jittered polyline between s.a and s.b
+          const steps=3; for(let i=0;i<=steps;i++){ const t=i/steps; const x=s.a.x+(s.b.x-s.a.x)*t + (Math.random()-0.5)*4; const y=s.a.y+(s.b.y-s.a.y)*t + (Math.random()-0.5)*4; if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y); } ctx.stroke(); }
+        ctx.restore(); } else { this._arcFX=null; } }
+  }
 }
 
 function dmgMult(e){

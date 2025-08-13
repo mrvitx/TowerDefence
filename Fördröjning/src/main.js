@@ -1,7 +1,7 @@
 import { buildPath } from './path.js';
 import { State, resetGame } from './state.js';
 import { handleSpawning } from './waves.js';
-import { drawGrid, drawWorld, initBackground, drawRangesCached } from './render.js';
+import { drawGrid, drawWorld, initBackground, drawRangesCached, drawMatrixTop } from './render.js';
 import { wireUI } from './ui.js';
 import { SpatialHash } from './spatial.js';
 import { loadSettingsApply, tryAutoLoadXML } from './persist.js';
@@ -25,6 +25,10 @@ try {
 
 // Load saved settings first, then reset to apply Admin defaults
 try{ loadSettingsApply(); }catch(e){}
+// After settings load, build path once to apply per-map overrides (startMoney/lives) before first reset
+try{ buildPath(canvas); }catch(_e){}
+// Sync State money/lives with Admin defaults (may be overridden by active map in buildPath)
+try{ State.money = State.money || 0; State.lives = State.lives || 0; }catch(_e){}
 // Apply theme variables from Visuals (presets + accent) to CSS vars
 (function applyThemeFromVisuals(){
   try{
@@ -71,6 +75,7 @@ function rebuildForSettings(){
   initBackground(canvas);
 }
 
+// Build again in case reset cleared path-dependent visuals
 buildPath(canvas);
 initBackground(canvas);
 const ui = wireUI();
@@ -131,6 +136,8 @@ function loop(t){
   for(const t of State.towers) t.draw(ctx);
   for(const e of State.enemies) e.draw(ctx);
   for(const p of State.projectiles) p.draw(ctx);
+  // Matrix rain as top overlay (overlaps gameplay)
+  try{ drawMatrixTop(ctx, canvas); }catch(_e){}
   ui.drawOverlay();
 
   // UI labels
@@ -191,6 +198,11 @@ function loop(t){
   State.bountyBoostActive = false;
   // Mark payout done for this waveId
       State.lastPayoutWave = waveId;
+    }
+    // Victory condition when maxWaves reached and not endless
+    if(!MapSettings.endless && MapSettings.maxWaves && State.currentWave >= MapSettings.maxWaves){
+      alert('Grattis! Du klarade alla vågor.');
+      resetGame();
     }
   }
 

@@ -232,6 +232,8 @@
           <label class="small">Visa heatmap</label><input id="stHeat" type="checkbox" />\
           <label class="small">Dimma</label><input id="stFog" type="checkbox" />\
           <label class="small">Kompakt HUD</label><input id="stCompact" type="checkbox" />\
+          <label class="small">Skadenummer</label><input id="stDmgNums" type="checkbox" />\
+          <label class="small">Färre effekter</label><input id="stReduced" type="checkbox" />\
         </div>';
       document.body.appendChild(panel);
       function read(){
@@ -255,7 +257,7 @@
           if(v._compact){ document.body.classList.add('hud-compact'); } else { document.body.classList.remove('hud-compact'); }
         }catch(_e){}
       }
-      function sync(){ var d=read(); var v=d.Visuals||{}; panel.querySelector('#stTheme').value = v.theme||'dim'; panel.querySelector('#stAccent').value = (v._accent||'#2dd66f'); panel.querySelector('#stScale').value = String(v._scale||1); panel.querySelector('#stFont').value = String(v.fontScale||1); panel.querySelector('#stRanges').checked=!!v.showAllRanges; panel.querySelector('#stDps').checked=!!v.showDps; panel.querySelector('#stHeat').checked=!!v.showHeatmap; panel.querySelector('#stFog').checked=!!v.fogEnabled; panel.querySelector('#stCompact').checked=!!v._compact; }
+  function sync(){ var d=read(); var v=d.Visuals||{}; panel.querySelector('#stTheme').value = v.theme||'dim'; panel.querySelector('#stAccent').value = (v._accent||'#2dd66f'); panel.querySelector('#stScale').value = String(v._scale||1); panel.querySelector('#stFont').value = String(v.fontScale||1); panel.querySelector('#stRanges').checked=!!v.showAllRanges; panel.querySelector('#stDps').checked=!!v.showDps; panel.querySelector('#stHeat').checked=!!v.showHeatmap; panel.querySelector('#stFog').checked=!!v.fogEnabled; panel.querySelector('#stCompact').checked=!!v._compact; panel.querySelector('#stDmgNums').checked = !(v.showDamageNumbers===false); panel.querySelector('#stReduced').checked = !!v.reducedFX; }
       // Open/close
       btn.addEventListener('click', function(){ if(panel.classList.contains('hidden')){ sync(); panel.classList.remove('hidden'); } else { panel.classList.add('hidden'); } });
       panel.querySelector('#stClose').addEventListener('click', function(){ panel.classList.add('hidden'); });
@@ -269,6 +271,8 @@
       panel.querySelector('#stHeat').addEventListener('change', function(){ var on=this.checked; write(v=>{ v.showHeatmap=on; }); });
       panel.querySelector('#stFog').addEventListener('change', function(){ var on=this.checked; write(v=>{ v.fogEnabled=on; }); });
       panel.querySelector('#stCompact').addEventListener('change', function(){ var on=this.checked; write(v=>{ v._compact=on; }); });
+  panel.querySelector('#stDmgNums').addEventListener('change', function(){ var on=this.checked; write(v=>{ v.showDamageNumbers=on; }); });
+  panel.querySelector('#stReduced').addEventListener('change', function(){ var on=this.checked; write(v=>{ v.reducedFX=on; }); });
       // Apply current on load
       try{ var v=read().Visuals||{}; apply(v); }catch(_e){}
       // Close when clicking outside

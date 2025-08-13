@@ -5,26 +5,41 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Start • Kaffekatten TD</title>
   <style>
-    :root{ --bg:#0f0f10; --panel:#151515; --edge:#2a2a2a; --txt:#eee; --muted:#bbb; --btn:#2d6; --btn2:#244; }
-    html,body{height:100%;margin:0;background:var(--bg);color:var(--txt);font-family:system-ui,Segoe UI,Roboto,Arial}
-  .wrap{max-width:960px;margin:40px auto;padding:0 16px}
+    :root{
+      --bg:#0e0f12; --bg-2:#0b0c10; --panel:#141518; --edge:#2a2d32; --txt:#eaeaea; --muted:#aab; --btn:#22c55e; --btn2:#2d6; --shadow: 0 8px 28px rgba(0,0,0,0.35);
+    }
+    html,body{height:100%;margin:0;background:linear-gradient(180deg,var(--bg),var(--bg-2));color:var(--txt);font-family:system-ui,Segoe UI,Roboto,Arial}
+    .wrap{max-width:1100px;margin:28px auto;padding:0 18px}
     .hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
-    .title{font-weight:700;font-size:22px}
-  .card{background:var(--panel);border:1px solid var(--edge);border-radius:14px;padding:16px;box-shadow:0 2px 10px rgba(0,0,0,0.25)}
-    label{display:block;margin:10px 0 4px;color:#ccc}
-    input,select,button{width:100%;padding:10px;border-radius:10px;border:1px solid #333;background:#0b0b0b;color:#fff}
-    button,.btn{cursor:pointer;background:var(--btn);border:0;margin-top:12px;display:inline-block;text-align:center;text-decoration:none}
-  .grid{display:grid;grid-template-columns:2fr 1fr;gap:16px}
-  @media (max-width: 900px){ .grid{ grid-template-columns: 1fr; } }
+    .title{font-weight:800;font-size:26px;letter-spacing:.3px}
+    .chip{padding:4px 8px;border-radius:8px;background:#1f2937;color:#9bb;border:1px solid #2a2d32;font-size:12px}
+  .hero{display:flex;gap:16px;align-items:center;background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(0,0,0,0.06)); border:1px solid var(--edge); border-radius:16px; padding:16px; margin-bottom:16px; box-shadow:var(--shadow)}
+  .heroLogo{width:64px;height:64px;flex:0 0 64px;background:#0b0c10;border:1px solid #2b2f36;border-radius:12px;display:grid;place-items:center}
+  .heroText h1{margin:0 0 4px 0;font-size:22px}
+  .heroText p{margin:0;color:#b9c}
+  @media (max-width: 560px){ .hero{flex-direction:column;align-items:flex-start} .heroLogo{width:56px;height:56px} }
+    .grid{display:grid;grid-template-columns: 420px 1fr; gap:18px; align-items:start}
+    @media (max-width: 980px){ .grid{ grid-template-columns: 1fr; } }
+    .card{background:var(--panel);border:1px solid var(--edge);border-radius:14px;padding:16px;box-shadow:var(--shadow)}
+    label{display:block;margin:10px 0 4px;color:#cbd5e1}
+    input,select,button{width:100%;padding:10px;border-radius:10px;border:1px solid #333;background:#0b0d10;color:#fff}
+    .btn-primary, .btn{cursor:pointer;background:var(--btn);border:0;margin-top:12px;display:inline-block;text-align:center;text-decoration:none;color:#062; filter:saturate(1.1)}
+    .btn-primary{padding:12px 16px;border-radius:12px;font-weight:700;background:var(--btn);color:#031}
+  .btn-ghost{padding:12px 16px;border-radius:12px;font-weight:600;background:#1b1e24;color:#cbd5e1;border:1px solid #2a2d32; text-decoration:none; display:inline-block}
     .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
     .links{display:flex;gap:10px;margin-top:12px}
     .row-btns{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
     a{color:#8cf}
-  .preview{background:#0b0b0c;border:1px solid #333;border-radius:12px;padding:10px;box-shadow:inset 0 1px 0 rgba(255,255,255,0.04)}
+    .preview{background:#0b0c10;border:1px solid #333;border-radius:14px;padding:10px;box-shadow:inset 0 1px 0 rgba(255,255,255,0.04)}
     .small{color:var(--muted);font-size:12px}
-    canvas{image-rendering:pixelated}
+    canvas{image-rendering:auto}
+  .legend{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .legend .item{display:flex;gap:8px;align-items:center;background:#101216;border:1px solid #2a2d32;padding:6px 8px;border-radius:8px;color:#bbc;font-size:12px}
+  .legend .swatch{width:14px;height:14px;border-radius:4px;border:1px solid #ffffff22;box-shadow:inset 0 0 0 1px #00000055}
+  .filters{display:grid;grid-template-columns: 1fr 160px 120px; gap:8px; margin:6px 0}
+  .starBtn{margin-left:auto; padding:10px 12px; border-radius:10px; border:1px solid #2a2d32; background:#12151a; color:#ffdb5a; text-decoration:none; display:inline-block}
+  .starBtn.active{background:#201b10; border-color:#49412a}
   </style>
-drawPreview();
   <script src="src/maps.js"></script>
   <script>
     window.onload = function() {
@@ -35,8 +50,10 @@ drawPreview();
       var buildMode = qs('#buildMode');
       var prev = document.getElementById('mapPrev');
       var pctx = prev.getContext('2d');
-      var cbHC = document.getElementById('colorblind');
+  var cbHC = document.getElementById('colorblind');
       var cbRM = document.getElementById('reducedMotion');
+  // Preview view transform (zoom/pan)
+  var view = { scale: 1, x: 0, y: 0 };
 
       // --- Helper: generate points for default maps if missing ---
       function generateLegacyPoints(id, width, height) {
@@ -58,8 +75,15 @@ drawPreview();
         return path;
       }
 
-      // Populate map dropdown from localStorage, always include default maps
-      function populateMapDropdown() {
+  // Favorites helpers
+  function getFavs(){ try{ return JSON.parse(localStorage.getItem('td-fav-maps-v1')||'[]')||[]; }catch(_e){ return []; } }
+  function setFavs(v){ try{ localStorage.setItem('td-fav-maps-v1', JSON.stringify(v||[])); }catch(_e){} }
+  function isFav(id){ return getFavs().includes(id); }
+  function toggleFav(id){ var f=getFavs(); var i=f.indexOf(id); if(i===-1) f.push(id); else f.splice(i,1); setFavs(f); }
+  function updateFavStar(){ try{ var favBtn=document.getElementById('btnFav'); if(!favBtn) return; var sel=document.getElementById('mapPreset'); var cur=sel?.value; var fav=isFav(cur); favBtn.classList.toggle('active', !!fav); favBtn.textContent = fav? '★ Favorit' : '☆ Favorit'; }catch(_e){} }
+
+  // Populate map dropdown from localStorage, always include default maps, with filters
+  function populateMapDropdown() {
         var maps = [];
         // Always start with defaults, then merge in custom
         var defaults = (window.Maps && window.Maps.DEFAULT_MAPS) ? window.Maps.DEFAULT_MAPS.map(function(m){ return Object.assign({}, m); }) : [];
@@ -73,13 +97,18 @@ drawPreview();
         var stored = (window.Maps && window.Maps.loadMaps) ? window.Maps.loadMaps() : [];
         // Remove any default maps from stored (by id)
         var customs = stored.filter(function(m){ return !defaults.some(function(d){ return d.id === m.id; }); });
-        maps = defaults.concat(customs);
+  maps = defaults.concat(customs);
+  // Filters
+  var ft = document.getElementById('filterText'); var ftype=document.getElementById('filterType');
+  var q=(ft?.value||'').trim().toLowerCase(); var tp=ftype?.value||'alla';
+  maps = maps.filter(function(m){ var okText = !q || (m.name||'').toLowerCase().includes(q) || (m.description||'').toLowerCase().includes(q) || (m.id||'').includes(q); var okType = (tp==='alla') || (tp==='standard' && m.type==='default') || (tp==='egen' && m.type!=='default') || (tp==='favorit' && isFav(m.id)); return okText && okType; });
         mapPreset.innerHTML = '';
         for (var i=0; i<maps.length; i++) {
           var map = maps[i];
           var opt = document.createElement('option');
           opt.value = map.id;
-          opt.textContent = map.name + (map.type === 'default' ? '' : ' (egen)');
+          var suffix = (map.type === 'default' ? '' : ' (egen)');
+          opt.textContent = map.name + suffix + (isFav(map.id) ? ' ★' : '');
           mapPreset.appendChild(opt);
         }
         // Set value to last used or first
@@ -106,16 +135,21 @@ drawPreview();
       // --- Unified scaling: scale from new game space (1200x800, PAD=24) to preview canvas (480x300) ---
       function scaleGameToPreview(pt) {
         const GAME_W=1200, GAME_H=800, PAD=24;
-        const PREV_W=480, PREV_H=300, PPAD=12; // keep existing preview size/aspect
+        // Use actual canvas resolution (after DPR scaling) to keep consistent mapping
+        const PPAD=12;
         const srcW = GAME_W-2*PAD, srcH = GAME_H-2*PAD;
-        const dstW = PREV_W-2*PPAD, dstH = PREV_H-2*PPAD;
+        const dstW = (prev?.width||480)-2*PPAD, dstH = (prev?.height||300)-2*PPAD;
         const scale = Math.min(dstW/srcW, dstH/srcH);
-        return {
-          x: ((pt.x-PAD)*scale)+PPAD,
-          y: ((pt.y-PAD)*scale)+PPAD
-        };
+        return { x: ((pt.x-PAD)*scale)+PPAD, y: ((pt.y-PAD)*scale)+PPAD };
       }
-      function drawPreview(){
+  function ensurePreviewResolution(){
+        if(!prev) return; const dpr=Math.max(1,Math.min(3,window.devicePixelRatio||1));
+        const cssW = Math.floor(prev.clientWidth||prev.width); const cssH = Math.floor(prev.clientHeight||prev.height);
+        const targetW = Math.max(320, Math.floor(cssW*dpr)); const targetH = Math.max(200, Math.floor(cssH*dpr));
+        if(prev.width!==targetW || prev.height!==targetH){ prev.width=targetW; prev.height=targetH; }
+      }
+  function drawPreview(){
+        ensurePreviewResolution();
         // Use the same map list as dropdown
         var maps = [];
         var defaults = (window.Maps && window.Maps.DEFAULT_MAPS) ? window.Maps.DEFAULT_MAPS.map(function(m){ return Object.assign({}, m); }) : [];
@@ -128,43 +162,95 @@ drawPreview();
         var customs = stored.filter(function(m){ return !defaults.some(function(d){ return d.id === m.id; }); });
         maps = defaults.concat(customs);
         var map = maps.find(function(m){ return m.id === mapPreset.value; });
-        if (!map || !Array.isArray(map.points) || map.points.length < 2) {
+        // Collect all routes; fall back to single legacy points
+        var routes = [];
+        if(map){
+          if(Array.isArray(map.routes) && map.routes.length>0){
+            for(var ri=0; ri<map.routes.length; ri++){
+              var r = map.routes[ri];
+              if(r && Array.isArray(r.points) && r.points.length>=2) routes.push(r);
+            }
+          } else if(Array.isArray(map.points) && map.points.length>=2){
+            routes.push({ points: map.points });
+          }
+        }
+        if (routes.length===0) {
           pctx.clearRect(0,0,prev.width,prev.height);
+          var infoHost0=document.getElementById('mapInfo'); if(infoHost0) infoHost0.innerHTML='';
+          var leg0=document.getElementById('previewLegend'); if(leg0) leg0.innerHTML='';
           return;
         }
         var tmp = document.createElement('canvas'); tmp.width=prev.width; tmp.height=prev.height; var tctx=tmp.getContext('2d');
-        tctx.clearRect(0,0,tmp.width,tmp.height);
-        tctx.fillStyle='#0b0b0c'; tctx.fillRect(0,0,tmp.width,tmp.height);
-        var path = map.points;
-        if(path.length>1){
-          var hc = !!cbHC?.checked;
-          // Draw path lines with scaling
+  tctx.clearRect(0,0,tmp.width,tmp.height);
+  tctx.fillStyle='#0b0b0c'; tctx.fillRect(0,0,tmp.width,tmp.height);
+  // apply view transform for zoom/pan
+  tctx.save(); tctx.translate(view.x, view.y); tctx.scale(view.scale, view.scale);
+        var hc = !!cbHC?.checked;
+  var palette=['#4ade80','#60a5fa','#f472b6','#f59e0b','#22d3ee','#a78bfa'];
+  var ovLbl = !!document.getElementById('ovLabels')?.checked;
+  var ovObj = !!document.getElementById('ovObjects')?.checked;
+  for(var ri=0;ri<routes.length;ri++){
+          var rdata = routes[ri]; var path=rdata.points;
+          if(!path || path.length<=1) continue;
+          var color = (rdata.style && rdata.style.color) || palette[ri % palette.length];
+          // Base road
           tctx.strokeStyle=hc?'#3a3a3a':'#2a2a2a'; tctx.lineWidth=18; tctx.lineCap='round'; tctx.beginPath();
-          var p0 = scaleGameToPreview(path[0]);
-          tctx.moveTo(p0.x, p0.y);
-          for(var i=1;i<path.length;i++){
-            var p = scaleGameToPreview(path[i]);
-            tctx.lineTo(p.x, p.y);
-          }
+          var p0 = scaleGameToPreview(path[0]); tctx.moveTo(p0.x, p0.y);
+          for(var i=1;i<path.length;i++){ var p = scaleGameToPreview(path[i]); tctx.lineTo(p.x,p.y); }
           tctx.stroke();
+          // Highlight center line
           tctx.strokeStyle=hc?'rgba(255,255,255,0.12)':'rgba(255,255,255,0.08)'; tctx.lineWidth=10; tctx.beginPath();
-          p0 = scaleGameToPreview(path[0]);
-          tctx.moveTo(p0.x, p0.y);
-          for(var i=1;i<path.length;i++){
-            var p = scaleGameToPreview(path[i]);
-            tctx.lineTo(p.x, p.y);
-          }
+          p0 = scaleGameToPreview(path[0]); tctx.moveTo(p0.x, p0.y);
+          for(var j=1;j<path.length;j++){ var q = scaleGameToPreview(path[j]); tctx.lineTo(q.x,q.y); }
           tctx.stroke();
-          // Start/Goal markers
-          var start=scaleGameToPreview(path[0]), goal=scaleGameToPreview(path[path.length-1]), r=12;
+          // Per-route color accent
+          tctx.save(); tctx.globalAlpha=0.9; tctx.strokeStyle=color; tctx.lineWidth=3; tctx.beginPath();
+          p0 = scaleGameToPreview(path[0]); tctx.moveTo(p0.x, p0.y);
+          for(var k=1;k<path.length;k++){ var u = scaleGameToPreview(path[k]); tctx.lineTo(u.x,u.y); }
+          tctx.stroke(); tctx.restore();
+          // Markers
+          var start=scaleGameToPreview(path[0]), goal=scaleGameToPreview(path[path.length-1]), rr=12;
+          var label = (rdata.style && rdata.style.label) || (ri===0 ? 'S' : 'S'+(ri+1));
           // Start
-          tctx.beginPath(); tctx.arc(start.x,start.y,r,0,Math.PI*2); tctx.fillStyle=(cbHC?.checked?'#00c853':'#1e8e3e'); tctx.fill(); tctx.lineWidth=3; tctx.strokeStyle='#fff'; tctx.stroke();
-          tctx.fillStyle='#fff'; tctx.font='12px system-ui'; tctx.textAlign='center'; tctx.textBaseline='middle'; tctx.fillText('S', start.x, start.y+1);
+          tctx.beginPath(); tctx.arc(start.x,start.y,rr,0,Math.PI*2); tctx.fillStyle=(ri===0 ? (hc?'#00c853':'#1e8e3e') : color); tctx.fill(); tctx.lineWidth=3; tctx.strokeStyle='#fff'; tctx.stroke();
+          if(ovLbl){ tctx.fillStyle='#fff'; tctx.font='12px system-ui'; tctx.textAlign='center'; tctx.textBaseline='middle'; tctx.fillText(label, start.x, start.y+1); }
           // Goal
-          tctx.lineWidth=3; tctx.strokeStyle='#fff'; tctx.beginPath(); tctx.arc(goal.x,goal.y,r+4,0,Math.PI*2); tctx.stroke();
-          tctx.strokeStyle=(cbHC?.checked?'#ffab00':'#c5221f'); tctx.beginPath(); tctx.arc(goal.x,goal.y,r,0,Math.PI*2); tctx.stroke(); tctx.beginPath(); tctx.arc(goal.x,goal.y,Math.max(5,Math.floor(r*0.5)),0,Math.PI*2); tctx.fillStyle=(cbHC?.checked?'#ffab00':'#c5221f'); tctx.fill();
+          tctx.lineWidth=3; tctx.strokeStyle='#fff'; tctx.beginPath(); tctx.arc(goal.x,goal.y,rr+4,0,Math.PI*2); tctx.stroke();
+          tctx.strokeStyle=(hc?'#ffab00':'#c5221f'); tctx.beginPath(); tctx.arc(goal.x,goal.y,rr,0,Math.PI*2); tctx.stroke(); tctx.beginPath(); tctx.arc(goal.x,goal.y,Math.max(5,Math.floor(rr*0.5)),0,Math.PI*2); tctx.fillStyle=(hc?'#ffab00':'#c5221f'); tctx.fill();
         }
+        // Environment preview (objects/bridges)
+        if(ovObj && map && map.environment){
+          try{
+            const env = map.environment;
+            // Bridges as blue bands
+            const br = env.bridges||[];
+            for(var bi=0; bi<br.length; bi++){
+              var b=br[bi]; var p1=scaleGameToPreview({x:b.x,y:b.y}); var p2=scaleGameToPreview({x:b.x+b.w,y:b.y+b.h});
+              var w=p2.x-p1.x, h=p2.y-p1.y; tctx.save(); tctx.fillStyle='rgba(120,180,240,0.18)'; tctx.strokeStyle='rgba(150,210,255,0.7)'; tctx.lineWidth=2; tctx.fillRect(p1.x,p1.y,w,h); tctx.strokeRect(p1.x,p1.y,w,h); tctx.restore();
+            }
+            // Other objects (rects or circles)
+            const objs = env.objects||[]; for(var oi=0; oi<objs.length; oi++){
+              var o=objs[oi]; if(o.type==='bridge') continue; if(o.w && o.h){ var q1=scaleGameToPreview({x:o.x,y:o.y}); var q2=scaleGameToPreview({x:o.x+o.w,y:o.y+o.h}); var ww=q2.x-q1.x, hh=q2.y-q1.y; tctx.save(); tctx.fillStyle=o.color||'rgba(60,200,255,0.12)'; tctx.strokeStyle='rgba(140,200,255,0.35)'; tctx.lineWidth=1; tctx.fillRect(q1.x,q1.y,ww,hh); tctx.strokeRect(q1.x,q1.y,ww,hh); tctx.restore(); }
+              else { var c=scaleGameToPreview({x:o.x,y:o.y}); var c2=scaleGameToPreview({x:o.x+(o.r||10), y:o.y}); var rr2=Math.abs(c2.x-c.x)||6; tctx.save(); tctx.beginPath(); tctx.arc(c.x,c.y,rr2,0,Math.PI*2); tctx.fillStyle=o.color||'rgba(150,180,255,0.25)'; tctx.fill(); tctx.strokeStyle='rgba(0,0,0,0.35)'; tctx.lineWidth=1; tctx.stroke(); tctx.restore(); }
+            }
+          }catch(_e){}
+  }
+  tctx.restore();
         pctx.clearRect(0,0,prev.width,prev.height); pctx.drawImage(tmp,0,0);
+        // Map info and legend
+        var infoHost=document.getElementById('mapInfo');
+        if(infoHost){ var desc=(map&&map.description)||''; var rt=routes.length; infoHost.innerHTML = '';
+          if(desc){ var short = desc.length>140 ? desc.slice(0,140)+'…' : desc; infoHost.innerHTML += `<span id="mapDescShort">${short}</span>`; if(desc.length>140) infoHost.innerHTML += ` <a href="#" id="descMore">läs mer</a><span id="mapDescFull" style="display:none"> ${desc}</span>`; }
+          infoHost.innerHTML += ` <span class="chip">${rt} rutt${rt>1?'er':''}</span>`; var more=document.getElementById('descMore'); if(more){ more.onclick=function(e){ e.preventDefault(); var full=document.getElementById('mapDescFull'); var shortEl=document.getElementById('mapDescShort'); if(full && shortEl){ if(full.style.display==='none'){ full.style.display='inline'; shortEl.style.display='none'; more.textContent='visa mindre'; } else { full.style.display='none'; shortEl.style.display='inline'; more.textContent='läs mer'; } } }; }
+        }
+        var leg=document.getElementById('previewLegend');
+        if(leg){ var html=''; for(var li=0; li<routes.length; li++){ var rr=routes[li]; var color=(rr.style&&rr.style.color)||palette[li%palette.length]; var label=(rr.style&&rr.style.label)||('Rutt '+(li+1)); html += `<div class="item"><span class="swatch" style="background:${color}"></span><span>${label}</span></div>`; } leg.innerHTML = html; }
+        // Tags and stats
+        var tagHost=document.getElementById('mapTags'); if(tagHost){ var tags=[]; if(map){ var hasMulti=routes.length>1; var hasBridge = !!(map.environment && ((map.environment.bridges&&map.environment.bridges.length) || ((map.environment.objects||[]).some(function(o){return o.type==='bridge';})))); var hasMatrix = !!(map.environment && map.environment.matrix && map.environment.matrix.on); var isEndless = !!(map.settings && map.settings.endless); if(hasMulti) tags.push('Multi‑rutt'); if(hasBridge) tags.push('Broar'); if(hasMatrix) tags.push('Matrix'); if(isEndless) tags.push('Endless'); }
+          tagHost.innerHTML = tags.map(function(t){ return `<span class="chip">${t}</span>`; }).join(' ');
+        }
+        var statsHost=document.getElementById('mapStats'); if(statsHost){ var L=0,B=0,D=0,cnt=0; for(var si=0;si<routes.length;si++){ var pts=routes[si].points||[]; if(pts.length<2) continue; cnt++; var res=(window.Maps&&window.Maps.analyzePath)? window.Maps.analyzePath(pts) : {difficulty:0,bends:0}; var len=0; for(var ii=0;ii<pts.length-1;ii++){ var a=pts[ii], b=pts[ii+1]; len += Math.hypot(b.x-a.x, b.y-a.y); } L+=len; B+= (res.bends||0); D+=(res.difficulty||0); }
+          var dAvg = cnt? (D/cnt) : 0; statsHost.innerHTML = `<span class="chip">Längd ${(L|0)} px</span> <span class="chip">Böjar ${B}</span> <span class="chip">Svår ${dAvg.toFixed? dAvg.toFixed(1): dAvg}</span>`; }
       }
       drawPreview();
       mapPreset.addEventListener('change', function(){
@@ -176,8 +262,45 @@ drawPreview();
         data.MapSettings.preset = mapPreset.value;
         localStorage.setItem(KEY, JSON.stringify(data));
         drawPreview();
+        updateFavStar();
       });
-      cbHC && cbHC.addEventListener('change', drawPreview);
+  var btnRnd=document.getElementById('btnRandom');
+  if(btnRnd){ btnRnd.addEventListener('click', function(ev){ try{ev.preventDefault();}catch(_e){} var opts=Array.prototype.slice.call(mapPreset.options||[]); if(opts.length){ var idx=Math.floor(Math.random()*opts.length); mapPreset.value=opts[idx].value; var evt=new Event('change'); mapPreset.dispatchEvent(evt); } }); }
+  cbHC && cbHC.addEventListener('change', drawPreview);
+  var ovL = document.getElementById('ovLabels'); var ovO=document.getElementById('ovObjects');
+  ovL && ovL.addEventListener('change', drawPreview);
+  ovO && ovO.addEventListener('change', drawPreview);
+  window.addEventListener('resize', drawPreview);
+  // Zoom/pan interactions on preview
+  if(prev){
+    let dragging=false, lastX=0, lastY=0;
+    prev.addEventListener('wheel', function(e){
+      e.preventDefault();
+      const dpr = Math.max(1, Math.min(3, window.devicePixelRatio||1));
+      const rect = prev.getBoundingClientRect();
+      const cx = (e.clientX - rect.left) * dpr;
+      const cy = (e.clientY - rect.top) * dpr;
+      const prevScale = view.scale;
+      const dir = (e.deltaY<0) ? 1.1 : 0.9;
+      view.scale = Math.max(0.5, Math.min(3, view.scale * dir));
+      const k = view.scale/prevScale;
+      view.x = cx - k*(cx - view.x);
+      view.y = cy - k*(cy - view.y);
+      drawPreview();
+    }, { passive: false });
+    prev.addEventListener('mousedown', function(e){ dragging=true; lastX=e.clientX; lastY=e.clientY; prev.style.cursor='grabbing'; });
+    window.addEventListener('mouseup', function(){ if(dragging){ dragging=false; prev.style.cursor='grab'; } });
+    window.addEventListener('mousemove', function(e){ if(!dragging) return; const dx=e.clientX-lastX, dy=e.clientY-lastY; lastX=e.clientX; lastY=e.clientY; const dpr=Math.max(1,Math.min(3,window.devicePixelRatio||1)); view.x += dx*dpr; view.y += dy*dpr; drawPreview(); });
+    prev.addEventListener('dblclick', function(){ view.scale=1; view.x=0; view.y=0; drawPreview(); });
+  }
+  // Overlay toggles and filters wiring
+  var ft = document.getElementById('filterText'); var ftype = document.getElementById('filterType'); var favBtn=document.getElementById('btnFav');
+  if(ft) ft.addEventListener('input', function(){ populateMapDropdown(); drawPreview(); updateFavStar(); });
+  if(ftype) ftype.addEventListener('change', function(){ populateMapDropdown(); drawPreview(); updateFavStar(); });
+  if(favBtn){
+    favBtn.addEventListener('click', function(e){ e.preventDefault(); var cur=mapPreset.value; if(!cur) return; toggleFav(cur); populateMapDropdown(); updateFavStar(); });
+    updateFavStar();
+  }
     };
   </script>
   <script>
@@ -398,32 +521,13 @@ drawPreview();
           }catch(err){ /* ignore and still navigate */ }
           location.href = './SPEL.HTML';
         });
+  const rnd = qs('#btnRandom');
+  if(rnd){ rnd.addEventListener('click', (ev)=>{ ev.preventDefault(); const sel=qs('#mapPreset'); if(!sel) return; const opts=[...sel.options]; if(!opts.length) return; const idx=Math.floor(Math.random()*opts.length); sel.value=opts[idx].value; sel.dispatchEvent(new Event('change')); }); }
       }
       if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind); else bind();
     })();
   </script>
-  <script>
-    // START: XML import/export (file:// friendly)
-    (function(){
-      const KEY='td-settings-v1';
-      function ensure(d){ d=d||{}; d.Admin=d.Admin||{startMoney:100,startLives:10,upgCost:{dmg:30,range:25,rate:35}}; d.Settings=d.Settings||{maxSpeed:5,buildMode:'paint'}; d.Visuals=d.Visuals||{showGrid:true,pathWidth:24}; d.MapSettings=d.MapSettings||{preset:'ring',difficulty:1,endless:false}; d.Audio=d.Audio||{muted:true}; d.TOWER_TYPES=d.TOWER_TYPES||{}; return d; }
-      function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;'); }
-      function toXML(d){ d=ensure(d); const t=Object.keys(d.TOWER_TYPES).map(id=>{const def=d.TOWER_TYPES[id]; return `    <Tower id="${esc(def.id||id)}" label="${esc(def.label||id)}" cost="${def.cost||50}" range="${def.range||80}" dmg="${def.dmg||5}" fireRate="${def.fireRate||1}" color="${esc(def.color||'#ccc')}" sellFactor="${def.sellFactor==null?0.7:def.sellFactor}"${def.aoe?` aoe="${def.aoe}"`:''}${def.slow?` slow="${def.slow}"`:''}${def.slowTime?` slowTime="${def.slowTime}"`:''} />`;}).join('\n'); return `<?xml version="1.0" encoding="UTF-8"?>\n<kaffekatten>\n  <Admin startMoney="${d.Admin.startMoney}" startLives="${d.Admin.startLives}">\n    <upgCost dmg="${d.Admin.upgCost.dmg}" range="${d.Admin.upgCost.range}" rate="${d.Admin.upgCost.rate}" />\n  </Admin>\n  <Settings maxSpeed="${d.Settings.maxSpeed}" buildMode="${esc(d.Settings.buildMode)}" />\n  <Visuals showGrid="${!!d.Visuals.showGrid}" pathWidth="${d.Visuals.pathWidth}" />\n  <Map preset="${esc(d.MapSettings.preset)}" difficulty="${d.MapSettings.difficulty}" endless="${!!d.MapSettings.endless}" />\n  <Audio muted="${!!d.Audio.muted}" />\n  <Towers>\n${t}\n  </Towers>\n  <timestamp>${Date.now()}</timestamp>\n</kaffekatten>`; }
-      function fromXML(text,d){ const parser=new DOMParser(); const doc=parser.parseFromString(text,'application/xml'); if(doc.querySelector('parsererror')) return null; d=ensure(d); const get=s=>doc.querySelector(s); const adminEl=get('kaffekatten > Admin'); if(adminEl){ const sm=parseInt(adminEl.getAttribute('startMoney')); const sl=parseInt(adminEl.getAttribute('startLives')); if(!isNaN(sm)) d.Admin.startMoney=sm; if(!isNaN(sl)) d.Admin.startLives=sl; const upg=get('kaffekatten > Admin > upgCost'); if(upg){ const dd=parseInt(upg.getAttribute('dmg')); const rr=parseInt(upg.getAttribute('range')); const rt=parseInt(upg.getAttribute('rate')); if(!isNaN(dd)) d.Admin.upgCost.dmg=dd; if(!isNaN(rr)) d.Admin.upgCost.range=rr; if(!isNaN(rt)) d.Admin.upgCost.rate=rt; } } const setEl=get('kaffekatten > Settings'); if(setEl){ const ms=parseFloat(setEl.getAttribute('maxSpeed')); const bm=setEl.getAttribute('buildMode'); if(!isNaN(ms)) d.Settings.maxSpeed=ms; if(bm) d.Settings.buildMode=bm; } const visEl=get('kaffekatten > Visuals'); if(visEl){ d.Visuals.showGrid = visEl.getAttribute('showGrid')==='true'; const pw=parseInt(visEl.getAttribute('pathWidth')); if(!isNaN(pw)) d.Visuals.pathWidth=pw; } const mapEl=get('kaffekatten > Map'); if(mapEl){ const pr=mapEl.getAttribute('preset'); const df=parseInt(mapEl.getAttribute('difficulty')); const en=mapEl.getAttribute('endless')==='true'; if(pr) d.MapSettings.preset=pr; if(!isNaN(df)) d.MapSettings.difficulty=df; d.MapSettings.endless=en; } const audEl=get('kaffekatten > Audio'); if(audEl){ d.Audio.muted = audEl.getAttribute('muted')==='true'; } const towers=doc.querySelectorAll('kaffekatten > Towers > Tower'); towers.forEach(el=>{ const id=el.getAttribute('id'); if(!id) return; const ni=n=>{ const v=parseFloat(el.getAttribute(n)); return isNaN(v)?undefined:v; }; const str=n=>el.getAttribute(n); d.TOWER_TYPES[id]={ id, label:str('label')||id, cost:ni('cost')??50, range:ni('range')??80, dmg:ni('dmg')??5, fireRate:ni('fireRate')??1, color:str('color')||'#ccc', sellFactor:ni('sellFactor')??0.7, aoe:ni('aoe'), slow:ni('slow'), slowTime:ni('slowTime') }; }); return d; }
-      function load(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}')||{}; }catch(e){ return {}; } }
-      function save(d){ try{ d.ts=Date.now(); localStorage.setItem(KEY, JSON.stringify(d)); return true; }catch(e){ return false; } }
-
-      function bind(){
-        const btnExp=document.getElementById('btnExportXML');
-        const btnImp=document.getElementById('btnImportXML');
-        const file=document.getElementById('xmlFile');
-        btnExp && btnExp.addEventListener('click',()=>{ const xml=toXML(load()); const blob=new Blob([xml],{type:'application/xml'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='kaffekatten-settings.xml'; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },0); });
-        btnImp && btnImp.addEventListener('click',()=> file && file.click());
-        file && file.addEventListener('change',()=>{ const f=file.files && file.files[0]; if(!f) return; const rdr=new FileReader(); rdr.onload=()=>{ const txt=String(rdr.result||''); const d=fromXML(txt, load()); if(d){ save(d); alert('XML importerat.'); } else alert('Ogiltig XML.'); }; rdr.readAsText(f); });
-      }
-      if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', bind); else bind();
-    })();
-  </script>
+  
   <script>
     // Quick accent palette chips (optional)
     (function(){
@@ -444,10 +548,34 @@ drawPreview();
 <body>
   <div class="wrap">
     <div class="hdr"><div class="title">Kaffekatten TD</div><div class="small">Alpha</div></div>
+    <div class="hero">
+      <div class="heroLogo" aria-hidden="true">
+        <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="6" y="10" width="22" height="18" rx="4" fill="#18202a" stroke="#3a3f47"/>
+          <rect x="26" y="13" width="8" height="12" rx="6" fill="#14181f" stroke="#3a3f47"/>
+          <path d="M10 26c3 3 11 3 14 0" stroke="#22c55e" stroke-width="2" stroke-linecap="round"/>
+          <path d="M13 8c-1 2 2 3 1 5M18 7c-1 2 2 3 1 5M23 8c-1 2 2 3 1 5" stroke="#b3e5c5" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="heroText">
+        <h1>Bygg, försvara, uppgradera</h1>
+        <p>Ett snabbt tower defense med tydliga banor och smarta torn. Välj karta, justera inställningar och kör igång på sekunder.</p>
+      </div>
+    </div>
     <div class="grid">
       <div class="card">
         <label>Karta</label>
-  <select id="mapPreset"><!-- Options populated by JS --></select>
+        <div class="filters">
+          <input id="filterText" placeholder="Sök karta..." />
+          <select id="filterType">
+            <option value="alla">Alla</option>
+            <option value="standard">Standard</option>
+            <option value="egen">Egen</option>
+            <option value="favorit">Favorit</option>
+          </select>
+          <a id="btnFav" href="#" class="starBtn" title="Markera som favorit">☆ Favorit</a>
+        </div>
+        <select id="mapPreset"><!-- Options populated by JS --></select>
         <div class="row">
           <div>
             <label>Svårighet (1–5)</label>
@@ -469,18 +597,25 @@ drawPreview();
         </div>
     <div class="small" style="margin-top:8px">Snabbt val: accent</div>
     <div id="paletteChips" class="row-btns" style="margin-top:4px"></div>
-        <a id="btnStart" class="btn" href="./SPEL.HTML">Starta spelet</a>
+  <div class="row-btns">
+    <a id="btnStart" class="btn btn-primary" href="./SPEL.HTML">Starta spelet</a>
+    <a id="btnRandom" class="btn-ghost" href="#">Slumpa karta</a>
+  </div>
         <div class="links"><a href="./ADMIN.html">Admin</a></div>
-        <div class="row-btns">
-          <button id="btnExportXML" type="button">Exportera XML</button>
-          <button id="btnImportXML" type="button">Importera XML</button>
-          <input id="xmlFile" type="file" accept=".xml,application/xml" style="display:none" />
-        </div>
+        
         <div class="small" style="margin-top:8px">Tips: När spelet startat kan du hålla musen över knapparna för att se deras snabbkommandon.</div>
       </div>
       <div class="card preview">
-        <div class="small" style="margin-bottom:6px">Förhandsvisning</div>
-        <canvas id="mapPrev" width="480" height="300"></canvas>
+        <div class="row" style="grid-template-columns:auto auto 1fr; align-items:center; gap:10px; margin-bottom:6px">
+          <div class="small">Förhandsvisning</div>
+          <label class="small" style="display:flex;gap:6px;align-items:center"><input id="ovLabels" type="checkbox" checked /> Visa etiketter</label>
+          <label class="small" style="display:flex;gap:6px;align-items:center;justify-content:flex-end"><input id="ovObjects" type="checkbox" /> Visa objekt</label>
+        </div>
+        <canvas id="mapPrev" width="480" height="300" style="width:100%;height:auto;aspect-ratio:8/5;border-radius:10px;display:block;cursor:grab"></canvas>
+        <div id="mapInfo" class="small" style="margin-top:8px"></div>
+        <div id="mapTags" class="chips" style="margin-top:6px"></div>
+        <div id="mapStats" class="chips" style="margin-top:6px"></div>
+        <div id="previewLegend" class="legend"></div>
       </div>
     </div>
   </div>

@@ -41,6 +41,15 @@ export const MapSettings = {
   preset: 'ring', // 'ring' | 'maze' | 'figure8'
   difficulty: 1,  // multiplier applied to waves
   endless: false,
+  // Wave pacing and limits
+  roundSeconds: 25,    // target duration per wave in seconds (approx)
+  maxWaves: 25,        // maximum waves before victory (ignored if endless)
+  // Link generator target difficulty to gameplay difficulty (1..5)
+  linkBuildDifficulty: true,
+  // Advanced generation controls
+  seed: 0,             // optional seed for deterministic generation (0 => random at reset)
+  complexity: 2,       // 1..5 overall complexity/meander/branching
+  smoothness: 0.5,     // 0..1 how strongly the path is smoothed (Catmull-Rom tension proxy)
   // Economy soft caps
   bankIncomeCap: 200,      // soft cap per wave for total bank income
   bankCapSoftness: 0.5,    // fraction applied beyond cap (0..1)

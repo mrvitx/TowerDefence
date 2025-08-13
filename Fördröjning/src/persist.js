@@ -74,7 +74,28 @@ function esc(str){ return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;')
 
 export function settingsToXML(){
   const t = Object.values(TOWER_TYPES).map(def=>{
-    return `    <Tower id="${esc(def.id)}" label="${esc(def.label)}" cost="${def.cost}" range="${def.range}" dmg="${def.dmg}" fireRate="${def.fireRate}" color="${esc(def.color||'#ccc')}" sellFactor="${def.sellFactor??0.7}"${def.aoe?` aoe="${def.aoe}"`:''}${def.slow?` slow="${def.slow}"`:''}${def.slowTime?` slowTime="${def.slowTime}"`:''}/>`;
+    const attrs = [
+      `id="${esc(def.id)}"`,
+      `label="${esc(def.label)}"`,
+      `cost="${def.cost}"`,
+      `range="${def.range}"`,
+      `dmg="${def.dmg}"`,
+      `fireRate="${def.fireRate}"`,
+      `color="${esc(def.color||'#ccc')}"`,
+      `sellFactor="${def.sellFactor??0.7}"`,
+    ];
+    if(def.aoe) attrs.push(`aoe="${def.aoe}"`);
+    if(def.slow) attrs.push(`slow="${def.slow}"`);
+    if(def.slowTime) attrs.push(`slowTime="${def.slowTime}"`);
+    if(def.dot) attrs.push(`dot="${def.dot}"`);
+    if(def.dotTime) attrs.push(`dotTime="${def.dotTime}"`);
+    if(def.chain){ if(def.chain.max) attrs.push(`chainMax="${def.chain.max}"`); if(def.chain.range) attrs.push(`chainRange="${def.chain.range}"`); if(def.chain.falloff) attrs.push(`chainFalloff="${def.chain.falloff}"`); }
+    if(def.mark){ if(def.mark.mult) attrs.push(`markMult="${def.mark.mult}"`); if(def.mark.duration) attrs.push(`markDuration="${def.mark.duration}"`); }
+    if(def.reveal!==undefined) attrs.push(`reveal="${!!def.reveal}"`);
+    if(def.critChance) attrs.push(`critChance="${def.critChance}"`);
+    if(def.critMult) attrs.push(`critMult="${def.critMult}"`);
+    if(def.income) attrs.push(`income="${def.income}"`);
+    return `    <Tower ${attrs.join(' ')} />`;
   }).join('\n');
   const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<kaffekatten>
   <Admin startMoney="${Admin.startMoney}" startLives="${Admin.startLives}">
@@ -82,7 +103,7 @@ export function settingsToXML(){
   </Admin>
   <Settings maxSpeed="${Settings.maxSpeed}" buildMode="${esc(Settings.buildMode)}" />
   <Visuals showGrid="${!!Visuals.showGrid}" pathWidth="${Visuals.pathWidth}" showDps="${!!Visuals.showDps}" showHeatmap="${!!Visuals.showHeatmap}" fogEnabled="${!!Visuals.fogEnabled}" showAllRanges="${!!Visuals.showAllRanges}" reducedFX="${!!Visuals.reducedFX}" cbMode="${esc(Visuals.cbMode||'none')}" fontScale="${Visuals.fontScale||1}" theme="${esc(Visuals.theme||'dim')}" accent="${esc(Visuals._accent||'')}" radius="${typeof Visuals._radius==='number'?Visuals._radius:''}" scale="${typeof Visuals._scale==='number'?Visuals._scale:''}" compact="${!!Visuals._compact}" />
-  <Map preset="${esc(MapSettings.preset)}" difficulty="${MapSettings.difficulty}" endless="${!!MapSettings.endless}" />
+  <Map preset="${esc(MapSettings.preset)}" difficulty="${MapSettings.difficulty}" endless="${!!MapSettings.endless}" seed="${MapSettings.seed||0}" complexity="${MapSettings.complexity||2}" smoothness="${MapSettings.smoothness||0.5}" roundSeconds="${MapSettings.roundSeconds||25}" maxWaves="${MapSettings.maxWaves||25}" linkBuildDifficulty="${!!MapSettings.linkBuildDifficulty}" />
   <Audio muted="${!!Audio.muted}" sfxVolume="${Audio.sfxVolume}" />
   <Skills points="${Skills.points}" dmgMul="${Skills.dmgMul}" rangeMul="${Skills.rangeMul}" critAdd="${Skills.critAdd}" bankMul="${Skills.bankMul}" bountyMul="${Skills.bountyMul}">
     ${(function(){ const lv=Skills.tree?.lv||{}; return Object.keys(lv).map(id=>`    <Node id="${esc(id)}" level="${lv[id]}" />`).join('\n'); })()}
@@ -148,10 +169,16 @@ export function applySettingsFromXMLDoc(doc){
     }
     const mapEl = get('kaffekatten > Map');
     if(mapEl){
-      const pr = mapEl.getAttribute('preset')||MapSettings.preset;
-      const df = parseInt(mapEl.getAttribute('difficulty'));
+  const pr = mapEl.getAttribute('preset')||MapSettings.preset;
+  const df = parseInt(mapEl.getAttribute('difficulty'));
       const en = mapEl.getAttribute('endless') === 'true';
-      MapSettings.preset = pr; if(!isNaN(df)) MapSettings.difficulty = df; MapSettings.endless = en;
+      const sd = parseInt(mapEl.getAttribute('seed'));
+      const cx = parseInt(mapEl.getAttribute('complexity'));
+      const sm = parseFloat(mapEl.getAttribute('smoothness'));
+  const rs = parseFloat(mapEl.getAttribute('roundSeconds'));
+  const mw = parseInt(mapEl.getAttribute('maxWaves'));
+  const lbd = mapEl.getAttribute('linkBuildDifficulty');
+  MapSettings.preset = pr; if(!isNaN(df)) MapSettings.difficulty = df; MapSettings.endless = en; if(!isNaN(sd)) MapSettings.seed = sd; if(!isNaN(cx)) MapSettings.complexity = cx; if(!isNaN(sm)) MapSettings.smoothness = sm; if(!isNaN(rs)) MapSettings.roundSeconds=rs; if(!isNaN(mw)) MapSettings.maxWaves=mw; if(lbd!==null) MapSettings.linkBuildDifficulty = lbd==='true';
     }
     const audEl = get('kaffekatten > Audio');
   if(audEl){ Audio.muted = audEl.getAttribute('muted') === 'true'; const sv=parseFloat(audEl.getAttribute('sfxVolume')); if(!isNaN(sv)) Audio.sfxVolume=sv; }
@@ -182,7 +209,18 @@ export function applySettingsFromXMLDoc(doc){
           aoe: ni('aoe') ?? def.aoe,
           slow: ni('slow') ?? def.slow,
           slowTime: ni('slowTime') ?? def.slowTime,
+          dot: ni('dot') ?? def.dot,
+          dotTime: ni('dotTime') ?? def.dotTime,
+          critChance: ni('critChance') ?? def.critChance,
+          critMult: ni('critMult') ?? def.critMult,
+          reveal: bool('reveal') ?? def.reveal,
+          income: ni('income') ?? def.income,
         };
+        // Chain and mark compound fields
+        const cMax = ni('chainMax'); const cRange = ni('chainRange'); const cFall = ni('chainFalloff');
+        if(cMax||cRange||cFall){ merged.chain = { ...(def.chain||{}), ...(merged.chain||{}), ...(cMax?{max:cMax}:{}) , ...(cRange?{range:cRange}:{}) , ...(cFall?{falloff:cFall}:{}) }; }
+        const mMul = ni('markMult'); const mDur = ni('markDuration');
+        if(mMul||mDur){ merged.mark = { ...(def.mark||{}), ...(merged.mark||{}), ...(mMul?{mult:mMul}:{}) , ...(mDur?{duration:mDur}:{}) }; }
         TOWER_TYPES[id] = merged;
       });
     }
