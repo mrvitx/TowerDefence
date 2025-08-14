@@ -7,6 +7,11 @@ import { Tower } from './entities.js';
 import { prepareWave, previewNextWave } from './waves.js';
 import { rebuildBackground } from './render.js';
 import { saveGame, loadGame, saveSettingsDump, loadSettingsApply, saveSettingsAsXML, importSettingsXMLFromText } from './persist.js';
+import { loadProfile, saveProfile, createBlueprintFromParts, xpToNext } from './profiles/profile.js';
+import { startProfileChipSync } from './ui/profileChip.js';
+import { initTowerList } from './ui/towerList.js';
+import { createUpgradePopup } from './ui/upgradePopup.js';
+import { initToolbar } from './ui/toolbar.js';
 
 // Elements
 const canvas = document.getElementById('canvas');
@@ -33,10 +38,14 @@ const btnMenu = document.getElementById('btnMenu');
 // Skill UI elements (injected)
 let skillPanel = null;
 let upgPopup = null;
+let _upg = null; // modular upgrade popup API
 let mutPanel = null; // mutator offer panel
+let profilePanel = null; // profile/inventory panel
 let _lastUpgUpdateTs = 0; // throttle popup content updates
 // Ensure a basic replay state container
 State.replay = State.replay || { recording:false, playing:false, events:[], seed: (State.seed||0), _idx:0 };
+// New UI module instances
+let _towerList = null;
 
 // Icon sprite injection and button decorators
 function injectIconSprite(){
@@ -227,7 +236,8 @@ function getSnappedFromEvent(e){
   return {x:sx, y:sy};
 }
 
-export function refreshTowerButtons(){
+// Legacy implementation kept as fallback; new wrapper below delegates to module if present
+function _refreshTowerButtonsLegacy(){
   towerBtns.innerHTML=''; let i=1;
   for(const key in TOWER_TYPES){
     const def=TOWER_TYPES[key];
@@ -252,6 +262,11 @@ export function refreshTowerButtons(){
     else { statsLine.textContent = `DMG:${def.dmg}  RNG:${def.range}  ROF:${def.fireRate}s`; }
     wrap.appendChild(c); wrap.appendChild(btn); wrap.appendChild(statsLine); towerBtns.appendChild(wrap); i++; }
   highlightAffordable();
+}
+
+export function refreshTowerButtons(){
+  if(_towerList && typeof _towerList.refresh==='function'){ try{ _towerList.refresh(); return; }catch(_e){} }
+  _refreshTowerButtonsLegacy();
 }
 
 function updateBuildModeLabel(){}
@@ -282,229 +297,99 @@ function showSelectedInfo(){
 }
 
 function ensureUpgPopup(){
-  if(upgPopup) return;
-  upgPopup = document.createElement('div');
-  upgPopup.style.position='fixed';
-  upgPopup.style.background='rgba(20,20,20,0.98)';
-  upgPopup.style.border='1px solid #444';
-  upgPopup.style.padding='8px';
-  upgPopup.style.borderRadius='10px';
-  upgPopup.style.zIndex='1000';
-  upgPopup.style.minWidth='180px';
-  upgPopup.style.boxShadow='0 2px 10px rgba(0,0,0,0.4)';
-  upgPopup.classList.add('hidden');
-  upgPopup.innerHTML = `
-    <div style="font-weight:600;margin-bottom:6px" id="upgTitle">Uppgradera</div>
-  <div id="upgStats" class="small" style="background:#0e0e0f;border:1px solid #333;border-radius:8px;padding:8px;margin-bottom:8px;line-height:1.35"></div>
-    <div id="targeting" class="small" style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">
-      <span style="opacity:0.8">Fokus:</span>
-      <button data-mode="first" class="btn-secondary" id="tgtFirst" style="color:#fff"></button>
-      <button data-mode="last" class="btn-secondary" id="tgtLast" style="color:#fff"></button>
-      <button data-mode="strong" class="btn-secondary" id="tgtStrong" style="color:#fff"></button>
-      <button data-mode="close" class="btn-secondary" id="tgtClose" style="color:#fff"></button>
-      <button id="btnClearFocus" class="btn-secondary" title="Rensa manuellt mål" style="color:#fff"></button>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr auto;gap:6px;align-items:center">
-      <div class="small" id="cLblD">+DMG</div><button id="ppDmg" style="color:#fff"></button>
-      <div class="small" id="cLblR">+Range</div><button id="ppRange" style="color:#fff"></button>
-      <div class="small" id="cLblRt">+Rate</div><button id="ppRate" style="color:#fff"></button>
-      <div></div><button id="ppSell" class="btn-secondary" style="background:#b33;color:#fff">Sälj</button>
-    </div>
-  `;
-  document.body.appendChild(upgPopup);
-  const ppD=document.getElementById('ppDmg');
-  const ppR=document.getElementById('ppRange');
-  const ppRt=document.getElementById('ppRate');
-  const ppS=document.getElementById('ppSell');
-  // Targeting button icons + labels
-  decorateButton(document.getElementById('tgtFirst'), 'i-first', 'Första');
-  decorateButton(document.getElementById('tgtLast'), 'i-last', 'Sista');
-  decorateButton(document.getElementById('tgtStrong'), 'i-star', 'Starkast');
-  decorateButton(document.getElementById('tgtClose'), 'i-near', 'Närmast');
-  decorateButton(document.getElementById('btnClearFocus'), 'i-clear', 'Rensa mål');
-  // Add icons to popup buttons
-  decorateButton(ppD, 'i-plus', 'Köp');
-  decorateButton(ppR, 'i-plus', 'Köp');
-  decorateButton(ppRt, 'i-plus', 'Köp');
-  ensurePriceBadge(ppD);
-  ensurePriceBadge(ppR);
-  ensurePriceBadge(ppRt);
-  decorateButton(ppS, 'i-sell', 'Sälj');
-  const nextUpgCost = (tw, stat)=>{
-    // Geometric scaling per stat level; mild 40% per level
-    const base = Admin.upgCost[stat]||0;
-    const lvl = (tw?.levels?.[stat])||0;
-    return Math.max(1, Math.floor(base * Math.pow(1.4, lvl)));
-  };
-  const projectStat = (tw, stat)=>{
-    if(!tw || tw.def?.income) return null;
-    const cur = tw.getStats();
-    const clone = { ...tw, levels: { ...tw.levels } };
-    clone.levels[stat]++;
-    // quick recompute using tw.getStats() semantics
-    const s2 = tw.getStats.call(clone);
-    const dps1 = cur.fireRate>0? (cur.dmg/cur.fireRate) : cur.dmg;
-    const dps2 = s2.fireRate>0? (s2.dmg/s2.fireRate) : s2.dmg;
-    return { cur, next:s2, dps1, dps2 };
-  };
-  const bulkBuy = (stat)=>{
-    if(!selectedTower) return;
-    let levels=1;
-    try{ if(window.event && (window.event.shiftKey||window.event.getModifierState?.('Shift'))){ levels=5; } }catch(_e){}
-    let bought=0; let totalCost=0;
-    for(let i=0;i<levels;i++){
-      const cost=nextUpgCost(selectedTower,stat);
-      if(State.money>=cost){ State.money-=cost; totalCost+=cost; selectedTower.levels[stat]++; bought++; }
-      else break;
+  if(_upg) return;
+  // Create modular popup and bind actions
+  _upg = createUpgradePopup();
+  _upg.bindActions({
+    onBuy: (stat, tw)=>{
+      if(!tw) return;
+      // bulk buy with Shift (×5)
+      let levels = 1; try{ if(window.event && (window.event.shiftKey||window.event.getModifierState?.('Shift'))){ levels=5; } }catch(_e){}
+      const nextUpgCost = (t, s)=>{ const base=Admin.upgCost[s]||0; const lv=(t?.levels?.[s])||0; return Math.max(1, Math.floor(base * Math.pow(1.4, lv))); };
+      let bought=0, totalCost=0;
+      for(let i=0;i<levels;i++){
+        const cost = nextUpgCost(tw, stat);
+        if((State.money||0) >= cost){ State.money -= cost; totalCost += cost; tw.levels[stat]++; bought++; }
+        else break;
+      }
+      if(bought>0){ if(typeof tw._spent==='number') tw._spent += totalCost; markHeatDirty(); if(State.replay?.recording){ try{ State.replay.events.push({ t:State.gameTime||0, type:'upg', stat, idx: State.towers.indexOf(tw), count: bought }); }catch(_e){} } showSelectedInfo(); positionUpgPopup(); }
+    },
+    onSell: (tw)=>{
+      if(!tw) return;
+      const def=tw.def; const sum=(tw.levels?.dmg||0)+(tw.levels?.range||0)+(tw.levels?.rate||0);
+      let val=Math.floor(def.cost*def.sellFactor*(1+sum*0.2));
+      if(tw._cursed){ val = Math.floor(val * (MapModifiers?.cursed?.sellMul || 0.5)); }
+      State.money += val; const idx=State.towers.indexOf(tw); if(idx>=0) State.towers.splice(idx,1);
+      markHeatDirty(); if(State.replay?.recording){ try{ State.replay.events.push({ t:State.gameTime||0, type:'sell', idx }); }catch(_e){} }
+      selectedTower=null; showSelectedInfo(); hideUpgPopup();
     }
-  if(bought>0){ if(typeof selectedTower._spent==='number') selectedTower._spent += totalCost; markHeatDirty(); if(State.replay?.recording){ try{ State.replay.events.push({ t:State.gameTime||0, type:'upg', stat, idx: State.towers.indexOf(selectedTower), count: bought }); }catch(_e){} } showSelectedInfo(); positionUpgPopup(); }
-  };
-  ppD.onclick=()=>bulkBuy('dmg');
-  ppR.onclick=()=>bulkBuy('range');
-  ppRt.onclick=()=>bulkBuy('rate');
-  ppS.onclick=()=>{ if(!selectedTower) return; const def=selectedTower.def; const sum=selectedTower.levels.dmg+selectedTower.levels.range+selectedTower.levels.rate; let val=Math.floor(def.cost*def.sellFactor*(1+sum*0.2)); if(selectedTower._cursed){ val = Math.floor(val * (MapModifiers?.cursed?.sellMul || 0.5)); } State.money+=val; const idx=State.towers.indexOf(selectedTower); if(idx>=0) State.towers.splice(idx,1); markHeatDirty(); if(State.replay?.recording){ try{ State.replay.events.push({ t:State.gameTime||0, type:'sell', idx }); }catch(_e){} } selectedTower=null; showSelectedInfo(); hideUpgPopup(); };
-  // Targeting buttons
-  const tgtWrap = upgPopup.querySelector('#targeting');
-  if(tgtWrap){
-    tgtWrap.addEventListener('click',(e)=>{
-      const btn=e.target.closest('button'); if(!btn || !selectedTower) return;
-      if(btn.id==='btnClearFocus'){ selectedTower._manualTarget=null; return; }
-      const mode = btn.getAttribute('data-mode'); if(mode){ selectedTower.targetMode = mode; positionUpgPopup(); }
-    });
-  }
-  // Close on outside click
-  window.addEventListener('pointerdown', (e)=>{
-    if(!upgPopup || upgPopup.classList.contains('hidden')) return;
-    // Don't close when clicking on canvas (selecting towers)
-    if(e.target===canvas) return;
-    if(e.target===upgPopup || upgPopup.contains(e.target)) return;
-    hideUpgPopup();
   });
+  // Inject targeting controls into the modular popup (keeps feature parity)
+  try{
+    const el = _upg.element; if(el && !el.querySelector('[data-targeting]')){
+      const grid = el.querySelector('#ppDmg')?.parentElement;
+      const tgt = document.createElement('div');
+      tgt.setAttribute('data-targeting','');
+      tgt.className = 'small';
+      tgt.style.display='flex'; tgt.style.gap='6px'; tgt.style.marginBottom='8px'; tgt.style.flexWrap='wrap';
+      tgt.innerHTML = `
+        <span style="opacity:0.8">Fokus:</span>
+        <button data-mode="first" class="btn-secondary" style="color:#fff"></button>
+        <button data-mode="last" class="btn-secondary" style="color:#fff"></button>
+        <button data-mode="strong" class="btn-secondary" style="color:#fff"></button>
+        <button data-mode="close" class="btn-secondary" style="color:#fff"></button>
+        <button data-clear class="btn-secondary" title="Rensa manuellt mål" style="color:#fff"></button>`;
+      if(grid && grid.parentElement){ grid.parentElement.insertBefore(tgt, grid); }
+      const [bFirst,bLast,bStrong,bClose,bClear] = tgt.querySelectorAll('button');
+      decorateButton(bFirst, 'i-first', 'Första');
+      decorateButton(bLast, 'i-last', 'Sista');
+      decorateButton(bStrong, 'i-star', 'Starkast');
+      decorateButton(bClose, 'i-near', 'Närmast');
+      decorateButton(bClear, 'i-clear', 'Rensa mål');
+      tgt.addEventListener('click',(e)=>{
+        const btn=e.target.closest('button'); if(!btn || !selectedTower) return;
+        if(btn.hasAttribute('data-clear')){ selectedTower._manualTarget=null; return; }
+        const mode = btn.getAttribute('data-mode'); if(mode){ selectedTower.targetMode = mode; positionUpgPopup(); }
+      });
+    }
+  }catch(_e){}
 }
 
 function positionUpgPopup(){
-  if(!upgPopup || upgPopup.classList.contains('hidden') || !selectedTower) return;
-  // Position under the Skills button if available; otherwise near the tower
+  if(!_upg || !_upg.element || _upg.element.classList.contains('hidden') || !selectedTower) return;
+  // Compute anchor position similar to legacy
   if(btnSkills){
     const br = btnSkills.getBoundingClientRect();
-    upgPopup.style.left = Math.round(br.left) + 'px';
-    upgPopup.style.top = Math.round(br.bottom + 6) + 'px';
+    _upg.element.style.left = Math.round(br.left) + 'px';
+    _upg.element.style.top = Math.round(br.bottom + 6) + 'px';
   } else {
     const r = canvas.getBoundingClientRect();
     const scaleX = r.width / canvas.width;
     const scaleY = r.height / canvas.height;
     const left = r.left + selectedTower.x * scaleX + 20;
     const top = r.top + selectedTower.y * scaleY - 20;
-    upgPopup.style.left = Math.round(left) + 'px';
-    upgPopup.style.top = Math.round(top) + 'px';
+    _upg.element.style.left = Math.round(left) + 'px';
+    _upg.element.style.top = Math.round(top) + 'px';
   }
-  // Throttle content refresh to reduce DOM churn
+  // Throttle content refresh
   const nowTs = (typeof performance!=='undefined' && performance.now) ? performance.now() : Date.now();
-  if(nowTs - _lastUpgUpdateTs < 250){
-    return;
-  }
+  if(nowTs - _lastUpgUpdateTs < 250) return;
   _lastUpgUpdateTs = nowTs;
-  // Update labels (including Bank wording)
-  const title = document.getElementById('upgTitle');
-  const statsEl = document.getElementById('upgStats');
-  const ppD=document.getElementById('ppDmg');
-  const ppR=document.getElementById('ppRange');
-  const ppRt=document.getElementById('ppRate');
-  const nextUpgCost = (tw, stat)=>{ const base=Admin.upgCost[stat]||0; const lvl=(tw?.levels?.[stat])||0; return Math.max(1, Math.floor(base * Math.pow(1.4, lvl))); };
-  if(selectedTower?.def?.income){
-    title.textContent = 'Uppgradera bank';
-  const cD = nextUpgCost(selectedTower,'dmg');
-  const cR = nextUpgCost(selectedTower,'range');
-  const cRt = nextUpgCost(selectedTower,'rate');
-  if(ppD && ppD._deco){ ppD._deco.set('Köp'); } else if(ppD){ ppD.textContent = 'Köp'; }
-  if(ppR && ppR._deco){ ppR._deco.set('Köp'); } else if(ppR){ ppR.textContent = 'Köp'; }
-  if(ppRt && ppRt._deco){ ppRt._deco.set('Köp'); } else if(ppRt){ ppRt.textContent = 'Köp'; }
-  const bD = ensurePriceBadge(ppD); if(bD) bD.textContent = String(cD);
-  const bR = ensurePriceBadge(ppR); if(bR) bR.textContent = String(cR);
-  const bRt = ensurePriceBadge(ppRt); if(bRt) bRt.textContent = String(cRt);
-  const lD=document.getElementById('cLblD'), lR=document.getElementById('cLblR'), lRt=document.getElementById('cLblRt');
-  if(lD) lD.textContent = `+DMG (${cD})`;
-  if(lR) lR.textContent = `+Range (${cR})`;
-  if(lRt) lRt.textContent = `+Rate (${cRt})`;
-    // Details for bank
-    if(statsEl){
-      const base = selectedTower.def.income;
-      const L = selectedTower.levels;
-      const bankMul = (Skills.bankMul||1);
-      const inc = typeof selectedTower.getIncomePerRound==='function' ? Math.floor(selectedTower.getIncomePerRound()) : Math.floor(base*bankMul);
-      const parts = [`Bas ${base}`, `× (1+20%×${L.dmg})`, `× (1+10%×${L.range})`, `× (1+15%×${L.rate})`, `× Bank x${bankMul.toFixed(2)}`];
-      if(selectedTower._boost && (MapModifiers?.boost?.incomeMul)){ parts.push(`× Boost x${(MapModifiers.boost.incomeMul).toFixed(2)}`); }
-      const sum = L.dmg+L.range+L.rate;
-      let sell = Math.floor(selectedTower.def.cost*selectedTower.def.sellFactor*(1+sum*0.2));
-      if(selectedTower._cursed){ sell = Math.floor(sell * (MapModifiers?.cursed?.sellMul || 0.5)); }
-      statsEl.innerHTML = `
-        <div>Income nu: <b>+${inc}</b> / våg</div>
-        <div style="color:#bbb">${parts.join(' ')}</div>
-        <div style="margin-top:6px">Nivåer D/R/Rt: ${L.dmg}/${L.range}/${L.rate} • Säljvärde: ${sell}</div>
-      `;
-    }
-  } else {
-    title.textContent = 'Uppgradera torn';
-  const cD = nextUpgCost(selectedTower,'dmg');
-  const cR = nextUpgCost(selectedTower,'range');
-  const cRt = nextUpgCost(selectedTower,'rate');
-  if(ppD && ppD._deco){ ppD._deco.set('Köp'); } else if(ppD){ ppD.textContent = 'Köp'; }
-  if(ppR && ppR._deco){ ppR._deco.set('Köp'); } else if(ppR){ ppR.textContent = 'Köp'; }
-  if(ppRt && ppRt._deco){ ppRt._deco.set('Köp'); } else if(ppRt){ ppRt.textContent = 'Köp'; }
-  const bD = ensurePriceBadge(ppD); if(bD) bD.textContent = String(cD);
-  const bR = ensurePriceBadge(ppR); if(bR) bR.textContent = String(cR);
-  const bRt = ensurePriceBadge(ppRt); if(bRt) bRt.textContent = String(cRt);
-  const lD=document.getElementById('cLblD'), lR=document.getElementById('cLblR'), lRt=document.getElementById('cLblRt');
-  if(lD) lD.textContent = `+DMG (${cD})`;
-  if(lR) lR.textContent = `+Range (${cR})`;
-  if(lRt) lRt.textContent = `+Rate (${cRt})`;
-    if(statsEl){
-      const s = selectedTower.getStats();
-      const def = selectedTower.def;
-      const dps = s.fireRate>0 ? (s.dmg / s.fireRate) : s.dmg;
-  const lines = [
-        `Skada: <b>${s.dmg.toFixed(1)}</b>`,
-        `DPS: <b>${dps.toFixed(1)}</b>`,
-        `Räckvidd: <b>${Math.round(s.range)}</b>`,
-        `Eldhast: <b>${s.fireRate.toFixed(2)}s</b>`
-      ];
-  // show deltas for each upgrade
-  const projD = projectStat(selectedTower,'dmg');
-  const projR = projectStat(selectedTower,'range');
-  const projRt = projectStat(selectedTower,'rate');
-  const delta = (p, kind)=> p? `${kind}→ <b>${kind==='DPS'?p.dps2.toFixed(1): Math.round(kind==='RNG'?p.next.range:p.next.dmg)}</b>` : '';
-  const hint = [ projD? `DMG + (${nextUpgCost(selectedTower,'dmg')}): ${delta(projD,'DPS')}`:'' , projR? `RNG + (${nextUpgCost(selectedTower,'range')}): ${delta(projR,'RNG')}`:'' , projRt? `ROF + (${nextUpgCost(selectedTower,'rate')}): ${delta(projRt,'DPS')}`:'' ].filter(Boolean).join(' • ');
-      if(typeof s.critChance==='number'){ lines.push(`Crit: <b>${Math.round((s.critChance||0)*1000)/10}%</b> x${(s.critMult||1.5).toFixed(2)}`); }
-      if(def.aoe){ lines.push(`Splash-radie: <b>${def.aoe}</b>`); }
-      if(def.chain){ lines.push(`Kedja: <b>${def.chain.max}</b> mål • räckvidd ${def.chain.range}`); }
-      if(def.slow){ lines.push(`Frost: <b>${Math.round((1-def.slow)*100)}%</b> i ${(def.slowTime||1.2)}s`); }
-      if(def.dot){ lines.push(`Gift: <b>${def.dot}/s</b> i ${(def.dotTime||2.5)}s`); }
-      if(def.mark){ lines.push(`Mark: <b>${(def.mark.mult||1.2).toFixed(2)}x</b> i ${(def.mark.duration||2.5)}s${def.reveal?' • avslöjar stealth':''}`); }
-      const flags=[]; if(selectedTower._boost) flags.push('Boostad ruta'); if(selectedTower._cursed) flags.push('Förbannad ruta');
-      const sum = selectedTower.levels.dmg+selectedTower.levels.range+selectedTower.levels.rate;
-      let sell = Math.floor(def.cost*def.sellFactor*(1+sum*0.2));
-      if(selectedTower._cursed){ sell = Math.floor(sell * (MapModifiers?.cursed?.sellMul || 0.5)); }
-      // DPS overlay from recent damage log
-  let dpsNow = (selectedTower._dpsNow||0).toFixed(1);
-      const tgt = selectedTower._manualTarget ? 'MANUELL' : ({first:'Första',last:'Sista',strong:'Starkast',close:'Närmast'}[selectedTower.targetMode]||'Första');
-      statsEl.innerHTML = `
-        <div>${lines.join(' • ')}</div>
-        <div style="margin-top:6px">Nivåer D/R/Rt: ${selectedTower.levels.dmg}/${selectedTower.levels.range}/${selectedTower.levels.rate}${flags.length?` • ${flags.join(' • ')}`:''}</div>
-        <div>Fokus: <b>${tgt}</b> • DPS (3s): <b>${dpsNow}</b> • Säljvärde: ${sell}</div>
-        ${hint? `<div class="small" style="margin-top:6px;color:#bbb">${hint}</div>`: ''}
-      `;
-    }
-  }
+  try{ _upg.setSelected(selectedTower); _upg.render(); }catch(_e){}
 }
 
-function showUpgPopup(){ ensureUpgPopup(); upgPopup.classList.remove('hidden'); positionUpgPopup(); }
-function hideUpgPopup(){ if(upgPopup) upgPopup.classList.add('hidden'); }
+function showUpgPopup(){ ensureUpgPopup(); try{ if(_upg?.element){ _upg.element.classList.remove('hidden'); } }catch(_e){} positionUpgPopup(); }
+function hideUpgPopup(){ try{ _upg && _upg.hide(); }catch(_e){} }
 
 export function wireUI(){
   injectIconSprite();
   injectIconStyles();
   // Ensure legacy sidebar upgrade controls are hidden; popup is used instead
   if(upgControls){ upgControls.classList.add('hidden'); }
+  // Init modular tower list (safe if DOM missing); falls back to legacy refresh
+  try{
+    _towerList = initTowerList({ onSelect: (defId)=>{ selectedTool = defId; _hasToolSelected = true; highlightAffordable(); } });
+  }catch(_e){ _towerList = null; }
   refreshTowerButtons();
   // Hard reset any residual build state on startup
   selectedTool = null;
@@ -572,53 +457,23 @@ export function wireUI(){
   btnPause && btnPause.addEventListener('click',()=>{
     const pausing = Settings.gameSpeed>0;
     Settings.gameSpeed = pausing ? 0 : 1;
-    speedLbl.textContent = Settings.gameSpeed.toFixed(2) + '×';
-    const spLbl = '×' + Math.max(1, Math.round(Settings.gameSpeed));
-    if(btnSpeed && btnSpeed._deco){ btnSpeed._deco.set(spLbl); } else if(btnSpeed){ btnSpeed.textContent = spLbl; }
-    const pLbl = Settings.gameSpeed>0 ? 'Pausa' : 'Fortsätt';
-    if(btnPause._deco){ btnPause._deco.set(pLbl); } else { btnPause.textContent = pLbl; }
+    // sync via toolbar api
+    try{ _toolbar && _toolbar.syncSpeed(Settings.gameSpeed); _toolbar && _toolbar.syncPause(Settings.gameSpeed===0); }catch(_e){
+      speedLbl.textContent = Settings.gameSpeed.toFixed(2) + '×';
+      const spLbl = '×' + Math.max(1, Math.round(Settings.gameSpeed));
+      if(btnSpeed && btnSpeed._deco){ btnSpeed._deco.set(spLbl); } else if(btnSpeed){ btnSpeed.textContent = spLbl; }
+      const pLbl = Settings.gameSpeed>0 ? 'Pausa' : 'Fortsätt';
+      if(btnPause?._deco){ btnPause._deco.set(pLbl); } else if(btnPause){ btnPause.textContent = pLbl; }
+    }
   });
-  // Toggle show all ranges
-  if(btnRanges){
-    const deco = decorateButton(btnRanges, 'i-eye', 'Visa räckvidd');
-    const sync = ()=>{ deco && deco.set(Visuals.showAllRanges ? 'Dölj räckvidd' : 'Visa räckvidd'); };
-    sync();
-    btnRanges.addEventListener('click',()=>{
-      Visuals.showAllRanges = !Visuals.showAllRanges;
-      try{ saveSettingsDump(); }catch(_e){}
-      sync();
-    });
-  }
-  // Toggle DPS overlay
-  if(btnDps){
-    const deco = decorateButton(btnDps, 'i-bolt', 'Visa DPS');
-    const sync = ()=>{ deco && deco.set(Visuals.showDps ? 'Dölj DPS' : 'Visa DPS'); };
-    sync();
-    btnDps.addEventListener('click',()=>{ Visuals.showDps = !Visuals.showDps; try{ saveSettingsDump(); }catch(_e){} sync(); });
-  }
-  // Heatmap
-  if(btnHeat){
-    const deco = decorateButton(btnHeat, 'i-heat', 'Visa heatmap');
-    const sync = ()=>{ deco && deco.set(Visuals.showHeatmap ? 'Dölj heatmap' : 'Visa heatmap'); };
-    sync();
-    btnHeat.addEventListener('click',()=>{ Visuals.showHeatmap = !Visuals.showHeatmap; try{ saveSettingsDump(); }catch(_e){} sync(); });
-  }
-  // Decorate other buttons once
-  decorateButton(startWaveBtn, 'i-play', 'Starta våg');
-  btnSpeed && (btnSpeed._deco = decorateButton(btnSpeed, 'i-speed', btnSpeed.textContent||'×1'));
-  if(btnPause){ const d=decorateButton(btnPause, 'i-pause', 'Pausa'); btnPause._deco=d; }
-  decorateButton(sellAllBtn, 'i-sell', 'Sälj alla');
-  btnSkills && decorateButton(btnSkills, 'i-skill', 'Skills');
-  btnAdmin && decorateButton(btnAdmin, 'i-admin', 'Admin');
-  btnRestart && decorateButton(btnRestart, 'i-restart', 'Restart');
-  btnMenu && decorateButton(btnMenu, 'i-home', 'Meny');
-  // (heatmap toggle already wired above with icon decorator)
-  // removed save/load buttons
-  // Admin: in module build, left-click toggles Dev panel; Shift/Right-click opens full Admin page
-  if(btnAdmin){
-    // Hint
-    try{ btnAdmin.title = 'Klick: Dev-panel • Shift/Högerklick: Admin-sida'; }catch(_e){}
-  }
+  // Toolbar module: decorations and toggles
+  const _toolbar = initToolbar({
+    buttons: { startWaveBtn, sellAllBtn, btnSpeed, btnPause, btnRanges, btnDps, btnHeat, btnSkills, btnAdmin, btnRestart, btnMenu, speedLbl },
+    Visuals,
+    Settings,
+    saveSettingsDump
+  });
+  // removed in favor of toolbar module
   // Note: actual Dev-panel toggle binding is installed later in ensureDevPanel()
   // Provide alternate gesture to reach ADMIN.html
   if(btnAdmin){
@@ -755,6 +610,64 @@ export function wireUI(){
     });
   }
   // Do not auto-mount; open with button
+  // Profile panel (toggle with key 'P')
+  function mountProfile(){
+    if(profilePanel) return;
+    profilePanel = document.createElement('div');
+    profilePanel.style.background='rgba(10,10,10,0.96)'; profilePanel.style.border='1px solid #333'; profilePanel.style.borderRadius='10px'; profilePanel.style.padding='10px'; profilePanel.style.zIndex='1002'; profilePanel.style.minWidth='260px';
+    profilePanel.classList.add('hidden');
+    profilePanel.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="font-weight:600">Profil & Inventarie</div>
+        <button id="pfClose" class="btn-secondary" style="background:#444">Stäng</button>
+      </div>
+      <div id="pfHeader" class="small" style="background:#0e0e0f;border:1px solid #333;border-radius:8px;padding:8px;margin-bottom:8px;line-height:1.35"></div>
+      <div style="font-weight:600;margin:6px 0">Föremål</div>
+      <div id="pfItems" class="small" style="display:grid;grid-template-columns:1fr 1fr;gap:6px"></div>
+      <div style="font-weight:600;margin:8px 0 6px">Blueprints</div>
+      <div id="pfBps" class="small"></div>
+      <button id="pfCraft" class="btn-secondary" style="margin-top:8px">Skapa test‑blueprint</button>
+    `;
+    document.body.appendChild(profilePanel);
+    profilePanel.querySelector('#pfClose')?.addEventListener('click',()=> profilePanel.classList.add('hidden'));
+    profilePanel.querySelector('#pfCraft')?.addEventListener('click',()=>{
+      try{
+        const p = loadProfile();
+        createBlueprintFromParts(p, 'Prototyp', 'cannon');
+        saveProfile(p);
+        refresh();
+      }catch(_e){}
+    });
+    const refresh = ()=>{
+      try{
+        const p = loadProfile();
+        const need = (lvl)=> 100 + Math.floor(lvl*lvl*50);
+        const hdr = profilePanel.querySelector('#pfHeader');
+        if(hdr){ hdr.innerHTML = `Namn: <b>${p.name||'Spelare'}</b> \u2022 Level <b>${p.level||1}</b> \u2022 XP ${p.xp||0}/${need(p.level||1)} \u2022 Shards: ${p.shards||0}`; }
+        const itemsHost = profilePanel.querySelector('#pfItems');
+        if(itemsHost){
+          const items = Array.isArray(p.inventory)? p.inventory : [];
+          itemsHost.innerHTML = items.length? items.map(it=>`<div style="border:1px solid #333;border-radius:8px;padding:6px;background:#0f0f10">${it.id}<br/><span style="opacity:0.8">${it.type}/${it.rarity.toUpperCase()}</span> \u2022 x${it.qty||1}</div>`).join('') : '<div style="opacity:0.7">Tomt</div>';
+        }
+        const bpsHost = profilePanel.querySelector('#pfBps');
+        if(bpsHost){
+          const bps = Array.isArray(p.towerBlueprints)? p.towerBlueprints : [];
+          bpsHost.innerHTML = bps.length? bps.map(b=>`<div style="border:1px solid #333;border-radius:8px;padding:6px;background:#0f0f10;margin-bottom:6px">${b.name} <span class="small" style="opacity:0.8">(${b.base})</span></div>`).join('') : '<div style="opacity:0.7">Inga ännu</div>';
+        }
+      }catch(_e){}
+    };
+    profilePanel._refresh = refresh;
+    refresh();
+    window.addEventListener('pointerdown', (e)=>{ if(!profilePanel || profilePanel.classList.contains('hidden')) return; if(e.target===profilePanel || profilePanel.contains(e.target)) return; profilePanel.classList.add('hidden'); });
+  }
+  function openProfile(){
+    mountProfile();
+    const r = btnSkills ? btnSkills.getBoundingClientRect() : startWaveBtn.getBoundingClientRect();
+    profilePanel.style.position='fixed'; profilePanel.style.left=Math.round(r.left)+'px'; profilePanel.style.top=Math.round(r.bottom+6)+'px';
+    profilePanel.classList.remove('hidden');
+    profilePanel._refresh && profilePanel._refresh();
+  }
+  window.addEventListener('keydown', (e)=>{ if(e.key==='p' || e.key==='P'){ e.preventDefault(); openProfile(); } });
 
   // Mutator selection panel (offer 3 choices before each wave if not already chosen)
   function openMutatorsOffer(){
@@ -888,6 +801,15 @@ export function wireUI(){
   if(skillPtsEl) skillPtsEl.textContent = Skills.points||0;
   changeSpeed(Settings.gameSpeed);
   if(btnPause){ if(btnPause._deco){ btnPause._deco.set(Settings.gameSpeed>0 ? 'Pausa' : 'Fortsätt'); } else { btnPause.textContent = Settings.gameSpeed>0 ? 'Pausa' : 'Fortsätt'; } }
+  // Profile chip initial sync (module)
+  startProfileChipSync();
+  // Also update when our HUD labels batch updates (money/lives/wave)
+  try{
+    const moneyObs = new MutationObserver(()=> startProfileChipSync());
+    moneyObs.observe(moneyEl, {childList:true, characterData:true, subtree:true});
+  }catch(_e){}
+  // Open profile on custom event from SPEL.HTML
+  document.addEventListener('td:openProfile', ()=>{ try{ openProfile(); }catch(_e){} });
 
   // Load settings on entry
   try{ loadSettingsApply(); refreshTowerButtons(); rebuildBackground(canvas); }catch(e){}

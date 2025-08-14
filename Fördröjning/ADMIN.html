@@ -180,6 +180,7 @@
               <label>Startliv</label><input id="mapStartLives" type="number" value="10" style="width:120px"/>
               <label>Vägbredd</label><input id="mapPathWidth" type="number" value="24" min="8" max="64" style="width:120px"/>
               <label>Svårighet (1-5)</label><input id="mapDifficulty" type="number" value="1" min="1" max="5" style="width:120px"/>
+              <label>Krävd profil‑level</label><input id="mapRequiredLevel" type="number" value="1" min="1" style="width:140px"/>
               <label><input id="mapEndless" type="checkbox"/> Endless</label>
               <label>Våglängd (sek)</label><input id="mapRoundSeconds" type="number" value="25" style="width:120px"/>
               <label>Max vågor</label><input id="mapMaxWaves" type="number" value="25" style="width:120px"/>
@@ -477,7 +478,7 @@
         // Legacy upgrade: scale if needed on first route
         const upg = upgradeLegacyPoints(editingMap.routes[0].points);
         // Per-map settings/env defaults
-        editingMap.settings = editingMap.settings || { difficulty:1, endless:false, roundSeconds:25, maxWaves:25, pathWidth:24, startMoney:100, startLives:10 };
+  editingMap.settings = editingMap.settings || { difficulty:1, endless:false, roundSeconds:25, maxWaves:25, pathWidth:24, startMoney:100, startLives:10, requiredLevel:1 };
   editingMap.environment = editingMap.environment || { matrix:{ on:false, tint:'#113311', rain:false }, bridges:[], objects:[], boostPads:[], cursedTiles:[], fogRects:[] };
         // Load generic objects (backward‑compatible with old 'bridges')
         envObjects = Array.isArray(editingMap.environment.objects) ? editingMap.environment.objects.slice() : [];
@@ -494,6 +495,7 @@
         (document.getElementById('mapStartLives')||{}).value = String(editingMap.settings.startLives||10);
         (document.getElementById('mapPathWidth')||{}).value = String(editingMap.settings.pathWidth||24);
         (document.getElementById('mapDifficulty')||{}).value = String(editingMap.settings.difficulty||1);
+  (document.getElementById('mapRequiredLevel')||{}).value = String(Math.max(1, editingMap.settings.requiredLevel||1));
         (document.getElementById('mapEndless')||{}).checked = !!editingMap.settings.endless;
         (document.getElementById('mapRoundSeconds')||{}).value = String(editingMap.settings.roundSeconds||25);
         (document.getElementById('mapMaxWaves')||{}).value = String(editingMap.settings.maxWaves||25);
@@ -570,7 +572,8 @@
         editingMap.settings.startMoney = parseInt(document.getElementById('mapStartMoney')?.value||'100',10);
         editingMap.settings.startLives = parseInt(document.getElementById('mapStartLives')?.value||'10',10);
         editingMap.settings.pathWidth  = parseInt(document.getElementById('mapPathWidth')?.value||'24',10);
-        editingMap.settings.difficulty = parseInt(document.getElementById('mapDifficulty')?.value||'1',10);
+  editingMap.settings.difficulty = parseInt(document.getElementById('mapDifficulty')?.value||'1',10);
+  editingMap.settings.requiredLevel = Math.max(1, parseInt(document.getElementById('mapRequiredLevel')?.value||'1',10));
         editingMap.settings.endless    = !!document.getElementById('mapEndless')?.checked;
         editingMap.settings.roundSeconds = parseFloat(document.getElementById('mapRoundSeconds')?.value||'25');
         editingMap.settings.maxWaves   = parseInt(document.getElementById('mapMaxWaves')?.value||'25',10);

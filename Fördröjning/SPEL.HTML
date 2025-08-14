@@ -26,6 +26,18 @@
   .btn-secondary{background:var(--btn2);color:#fff}
     .small{font-size:12px;color:var(--muted)}
     .hidden{display:none}
+    /* Profile chip */
+    .profile-chip{display:inline-flex;flex-direction:column;align-items:flex-start;gap:4px;min-width:180px}
+  .profile-chip .pc-line{display:flex;gap:8px;align-items:baseline}
+  .profile-chip #pcName{font-weight:700}
+  .profile-chip #pcLvl{font-size:12px;opacity:.9}
+    .xpbar{display:block;width:100%;height:8px;background:rgba(0,0,0,.35);border-radius:999px;overflow:hidden;border:1px solid rgba(17,242,122,.25)}
+    .xpbar .xpbar-fill{display:block;height:100%;width:0;background:
+      repeating-linear-gradient(135deg, rgba(17,242,122,.85) 0 8px, rgba(17,242,122,.55) 8px 16px);
+      box-shadow:0 0 12px rgba(17,242,122,.45), inset 0 0 6px rgba(0,0,0,.35);
+      transition:width .25s ease}
+    .pc-xp-row{display:flex;gap:8px;align-items:center;width:100%}
+    .pc-xp-row #pcXpPct{font-size:11px;color:#8dbf96;min-width:34px;text-align:right}
   .admin{position:fixed;right:14px;top:14px;width:300px;background:rgba(10,10,10,0.95);border:1px solid #333;padding:12px;border-radius:10px;z-index:999;max-height:85vh;overflow:auto}
   /* Generic helper for any floating overlay that gets too tall */
   .overlay-scroll-fix{max-height:min(85vh, calc(100dvh - 28px));overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable both-edges;touch-action:pan-y}
@@ -132,6 +144,13 @@
       </div>
     </div>
     <div class="toolbar">
+      <div class="profile-chip" id="profileChip" title="Klicka för detaljer">
+        <div class="pc-line"><span id="pcName">Spelare</span><span id="pcLvl" class="small">Lvl 1</span></div>
+        <div class="pc-xp-row">
+          <div class="xpbar"><span class="xpbar-fill" id="pcXpFill" style="width:0%"></span></div>
+          <span id="pcXpPct">0%</span>
+        </div>
+      </div>
       <div class="stat">
   <div>Pengar: <strong id="money">100</strong></div>
   <div>SP: <strong id="skillPts">0</strong></div>
@@ -143,19 +162,22 @@
   <button id="startWave"><span class="ico"><svg viewBox="0 0 24 24"><use href="#i-play" xlink:href="#i-play"/></svg></span><span class="lbl">Starta våg</span></button>
   <button id="btnSpeed" class="btn-secondary"><span class="ico"><svg viewBox="0 0 24 24"><use href="#i-speed" xlink:href="#i-speed"/></svg></span><span class="lbl">×1</span></button>
   <button id="btnPause" class="btn-secondary"><span class="ico"><svg viewBox="0 0 24 24"><use href="#i-pause" xlink:href="#i-pause"/></svg></span><span class="lbl">Pausa</span></button>
-  <button id="btnRanges" class="btn-secondary" title="Visa alla range‑ringar"><span class="ico"><svg viewBox="0 0 24 24"><use href="#i-eye" xlink:href="#i-eye"/></svg></span><span class="lbl">Visa räckvidd</span></button>
-  <button id="btnDps" class="btn-secondary" title="Visa DPS per torn"><span class="ico"><svg viewBox="0 0 24 24"><use href="#i-bolt" xlink:href="#i-bolt"/></svg></span><span class="lbl">Visa DPS</span></button>
-  <button id="sellAll" class="btn-secondary"><span class="ico"><svg viewBox="0 0 24 24"><use href="#i-trash" xlink:href="#i-trash"/></svg></span><span class="lbl">Sälj alla</span></button>
   <button id="btnSettings" class="btn-secondary" title="UI-inställningar"><span class="ico"><svg viewBox="0 0 24 24"><use href="#i-gear" xlink:href="#i-gear"/></svg></span><span class="lbl">Inställningar</span></button>
   <button id="btnSkills" class="btn-secondary"><span class="ico"><svg viewBox="0 0 24 24"><use href="#i-star" xlink:href="#i-star"/></svg></span><span class="lbl">Skills</span></button>
-  <button id="btnAdmin" class="btn-secondary"><span class="ico"><svg viewBox="0 0 24 24"><use href="#i-wrench" xlink:href="#i-wrench"/></svg></span><span class="lbl">Admin</span></button>
-  <button id="btnRestart" class="btn-secondary"><span class="ico"><svg viewBox="0 0 24 24"><use href="#i-restart" xlink:href="#i-restart"/></svg></span><span class="lbl">Restart</span></button>
   <a id="btnMenu" class="btn-secondary" href="./START.html" style="display:inline-block;text-decoration:none;color:inherit;padding:8px 10px;border-radius:6px;"><span class="ico"><svg viewBox="0 0 24 24"><use href="#i-home" xlink:href="#i-home"/></svg></span><span class="lbl">Meny</span></a>
     </div>
     <div class="main">
     <canvas id="canvas" width="1200" height="800"></canvas>
   <div id="buildGhost" style="position:absolute;inset:0;pointer-events:none;display:none;overflow:visible;z-index:100"></div>
   <div id="towerOverlay" style="position:absolute;inset:0;pointer-events:none;z-index:90"></div>
+    </div>
+    <!-- Hidden hooks so legacy event wiring stays intact after grouping tools into Settings -->
+    <div id="utilityHooks" style="display:none">
+      <button id="btnRanges"></button>
+      <button id="btnDps"></button>
+      <button id="sellAll"></button>
+      <button id="btnAdmin"></button>
+      <button id="btnRestart"></button>
     </div>
   </div>
 
@@ -165,6 +187,49 @@
     <a href="./ADMIN.html">Öppna Admin-sidan</a>
     <div style="margin-top:12px"><button id="closeAdmin">Stäng</button></div>
   </div>
+
+  <script>
+    // Safety: if the top toolbar is missing (e.g., moved by another script), recreate a minimal one before boot.
+    (function(){
+      function ensureToolbar(){
+        if(document.querySelector('.toolbar')) return; // already present
+        var app = document.getElementById('app'); if(!app) return;
+        // Create a minimal toolbar with required IDs so game UI can wire events safely
+        var tb = document.createElement('div');
+        tb.className = 'toolbar';
+        tb.innerHTML = '\
+          <div class="profile-chip" id="profileChip" title="Klicka för detaljer">\
+            <div class="pc-line"><span id="pcName">Spelare</span><span id="pcLvl" class="small">Lvl 1</span></div>\
+            <div class="pc-xp-row">\
+              <div class="xpbar"><span class="xpbar-fill" id="pcXpFill" style="width:0%"></span></div>\
+              <span id="pcXpPct">0%</span>\
+            </div>\
+          </div>\
+          <div class="stat">\
+            <div>Pengar: <strong id="money">0</strong></div>\
+            <div>SP: <strong id="skillPts">0</strong></div>\
+            <div>Liv: <strong id="lives">10</strong></div>\
+            <div>Våg: <strong id="wave">0</strong> <span id="bountyBoost" class="small" style="display:none;margin-left:6px;color:#9f6">Bounty +25%</span></div>\
+            <div>Rund-income: <strong id="income">0</strong></div>\
+            <div>Hastighet: <strong id="speedLbl">1×</strong></div>\
+          </div>\
+          <button id="startWave">Starta våg</button>\
+          <button id="btnSpeed" class="btn-secondary">×1</button>\
+          <button id="btnPause" class="btn-secondary">Pausa</button>\
+          <button id="btnSettings" class="btn-secondary">Inställningar</button>\
+          <button id="btnSkills" class="btn-secondary">Skills</button>\
+          <a id="btnMenu" class="btn-secondary" href="./START.html" style="display:inline-block;text-decoration:none;color:inherit;padding:8px 10px;border-radius:6px;">Meny</a>';
+        // Insert after sidebar to match grid area
+        // If app has first child (sidebar) and main, append toolbar in between by order
+        // Simpler: append as second child; grid-area CSS will place it correctly
+        var sidebar = app.querySelector('.sidebar');
+        if(sidebar && sidebar.nextSibling){ app.insertBefore(tb, sidebar.nextSibling); } else { app.appendChild(tb); }
+      }
+      // Run as soon as possible
+      try{ ensureToolbar(); }catch(_e){}
+      document.addEventListener('DOMContentLoaded', function(){ try{ ensureToolbar(); }catch(_e){} });
+    })();
+  </script>
 
   <!-- Skills modal (fallback UI). Will be shown when clicking "Skills". -->
   <div id="skillsModal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="skillsTitle"
@@ -206,19 +271,33 @@
         pockets: 'maze'
       };
       var btn = document.getElementById('btnSettings'); if(!btn) return;
-      var panel = document.createElement('div');
+  var panel = document.createElement('div');
       panel.style.cssText='position:fixed;right:14px;top:64px;z-index:1000;background:var(--panel);border:1px solid var(--edge);border-radius:var(--radius);padding:10px;min-width:260px;box-shadow:0 10px 24px rgba(0,0,0,.35)';
       panel.className='hidden';
+  panel.setAttribute('data-primary-settings','1');
       panel.innerHTML = '\
         <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">\
           <div style="font-weight:600">Inställningar</div>\
           <button id="stClose" class="btn-secondary">Stäng</button>\
         </div>\
+        <div class=\"small\" style=\"margin-top:6px\">Verktyg</div>\
+        <div style="display:grid;grid-template-columns:1fr;gap:6px;margin-bottom:6px">\
+          <button id=\"stToolRanges\" class=\"btn-secondary\">Visa räckvidd</button>\
+          <button id=\"stToolDps\" class=\"btn-secondary\">Visa DPS</button>\
+          <button id=\"stToolSellAll\" class=\"btn-secondary\">Sälj alla</button>\
+          <button id=\"stToolAdmin\" class=\"btn-secondary\">Admin</button>\
+          <button id=\"stToolRestart\" class=\"btn-secondary\">Restart</button>\
+        </div>\
+        <div class="small" style="margin-top:6px">Avancerat</div>\
+        <div style="display:grid;grid-template-columns:1fr;gap:6px;margin-bottom:6px">\
+          <button id="stAdvanced" class="btn-secondary">Öppna avancerade inställningar…</button>\
+        </div>\
         <div class="small" style="margin-top:6px">Tema</div>\
-        <select id="stTheme" style="width:100%">\
-          <option value="dim">Mörk (dim)</option>\
-          <option value="light">Ljus</option>\
-          <option value="neon">Neon</option>\
+        <select id=\"stTheme\" style=\"width:100%\">\
+          <option value=\"dim\">Mörk (dim)</option>\
+          <option value=\"light\">Ljus</option>\
+          <option value=\"neon\">Neon</option>\
+          <option value=\"matrix\">Matrix</option>\
         </select>\
         <div class="small" style="margin-top:8px">Accentfärg</div>\
         <input id="stAccent" type="color" style="width:100%" />\
@@ -236,6 +315,110 @@
           <label class="small">Färre effekter</label><input id="stReduced" type="checkbox" />\
         </div>';
       document.body.appendChild(panel);
+      // Suppress any legacy settings panel that auto-opens on load
+      function suppressAutoLegacyPanels(){
+        try{
+          var app = document.getElementById('app');
+          var nodes = Array.from(document.querySelectorAll('div,section,aside,article'));
+          nodes.forEach(function(el){
+            if(el===panel || panel.contains(el)) return; // our primary settings
+            if(el===advModal || advModal.contains(el)) return;
+            if(el.getAttribute('data-adv-settings')==='1') return;
+            if(el.getAttribute('data-primary-settings')==='1') return;
+            if(app && (el===app || el.contains(app) || app.contains(el))) return;
+            var s = getComputedStyle(el);
+            var isFloating = (s.position==='fixed' || s.position==='absolute');
+            var hasControls = (el.querySelectorAll('input[type="range"]').length >= 2) || !!el.querySelector('input[type="color"]');
+            if(!isFloating || !hasControls) return;
+            var txt = (el.textContent||'').toLowerCase();
+            var looksSettings = /tema|accentfärg|hörnradie|ikonstorlek|ui\s*-?\s*skala|rutnät|väg/i.test(txt);
+            if(!looksSettings) return;
+            // Hide it; we will expose via Advanced on demand
+            el.style.display = 'none';
+            el.setAttribute('data-adv-settings','1');
+          });
+        }catch(_e){}
+      }
+      // Run suppression now and for a brief window to catch late mounts
+      try{ suppressAutoLegacyPanels(); }catch(_e){}
+      try{
+        var supStart = Date.now();
+        var supObs = new MutationObserver(function(){ if(Date.now()-supStart>3500){ try{ supObs.disconnect(); }catch(_e){} return; } suppressAutoLegacyPanels(); });
+        supObs.observe(document.body, {childList:true, subtree:true});
+        setTimeout(function(){ try{ supObs.disconnect(); }catch(_e){} }, 4000);
+      }catch(_e){}
+      // Advanced settings modal host (we'll move legacy/bottom settings box here on demand)
+      var advModal = document.createElement('div');
+      advModal.id = 'advSettingsModal';
+      advModal.className = 'hidden';
+      advModal.setAttribute('role','dialog');
+      advModal.setAttribute('aria-modal','true');
+      advModal.style.cssText = 'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:560px;max-width:95vw;max-height:85vh;overflow:auto;background:var(--panel);border:1px solid var(--edge);border-radius:var(--radius);z-index:1100;box-shadow:0 16px 48px rgba(0,0,0,.5)';
+      advModal.innerHTML = '\
+        <div id="advDrag" style="position:sticky;top:0;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px;background:var(--panel2);border-bottom:1px solid var(--edge);cursor:move;border-top-left-radius:var(--radius);border-top-right-radius:var(--radius)">\
+          <strong>Avancerade inställningar</strong>\
+          <button id="advClose" class="btn-secondary">Stäng</button>\
+        </div>\
+        <div id="advBody" style="padding:10px"></div>';
+      document.body.appendChild(advModal);
+      // Make draggable if helper exists
+      if(window.__TD_MAKE_DRAGGABLE__) try{ window.__TD_MAKE_DRAGGABLE__(advModal, advModal.querySelector('#advDrag')); }catch(_e){}
+      advModal.querySelector('#advClose')?.addEventListener('click', function(){ advModal.classList.add('hidden'); });
+      window.addEventListener('pointerdown', function(e){ if(advModal.classList.contains('hidden')) return; if(e.target===advModal || advModal.contains(e.target)) return; advModal.classList.add('hidden'); });
+
+      // Try to locate any legacy/bottom settings panel and capture it into our modal to avoid duplicates/flicker
+      var legacySettingsEl = null;
+      function findLegacySettings(){
+        if(legacySettingsEl && document.body.contains(legacySettingsEl)) return legacySettingsEl;
+        try{
+          var candidates = Array.from(document.querySelectorAll('div,section,aside,article'));
+          var keys = [/Hörnradie/i, /Rutnät/i, /Ikonstorlek/i, /Inställningar/i, /UI\s*-?\s*skal/i, /Tema/i, /Accent/i, /Font/i];
+          candidates = candidates.filter(function(el){
+            if(el.getAttribute('data-adv-settings')==='1') return true;
+            // Never target the main app or its ancestors/descendants
+            var app = document.getElementById('app');
+            if(el===app || (app && (el.contains(app) || app.contains(el)))) return false;
+            var s = getComputedStyle(el);
+            // Looks like a floating/settings panel
+            var looksPanel = ((s.backgroundColor && s.backgroundColor !== 'rgba(0, 0, 0, 0)') && (s.borderStyle && s.borderStyle!=='none')) || (s.position==='fixed' || s.position==='absolute');
+            // Must include characteristic controls (sliders or color)
+            var heavyControls = (el.querySelectorAll('input[type="range"]').length >= 2) || !!el.querySelector('input[type="color"]');
+            if(!(looksPanel && heavyControls)) return false;
+            var txt = (el.textContent||'').slice(0,500);
+            return keys.some(function(r){ return r.test(txt); });
+          });
+          // Prefer elements lower on the page (the bottom box) and not our own panels
+          candidates = candidates.filter(function(el){ return el!==panel && !panel.contains(el) && el!==advModal && !advModal.contains(el); });
+          // Skip overly large containers (likely the whole app/content)
+          candidates = candidates.filter(function(el){ var r=el.getBoundingClientRect(); return r.width <= (window.innerWidth*0.9) && r.height <= (window.innerHeight*0.9); });
+          candidates.sort(function(a,b){ return a.getBoundingClientRect().top - b.getBoundingClientRect().top; });
+          legacySettingsEl = candidates[candidates.length-1] || null;
+          if(legacySettingsEl){ legacySettingsEl.setAttribute('data-adv-settings','1'); }
+        }catch(_e){ legacySettingsEl = null; }
+        return legacySettingsEl;
+      }
+      function attachLegacyToModal(){
+        var el = findLegacySettings();
+        if(!el) return false;
+        try{
+          // Normalize position and appearance before moving
+          el.style.display='';
+          var s = getComputedStyle(el);
+          if(s.position==='fixed' || s.position==='absolute'){ el.style.position='static'; el.style.left=''; el.style.top=''; el.style.right=''; el.style.bottom=''; }
+          el.style.maxWidth='unset'; el.style.maxHeight='unset'; el.style.margin='0';
+          var body = document.getElementById('advBody'); if(body && el.parentNode!==body){ body.innerHTML=''; body.appendChild(el); }
+          return true;
+        }catch(_e){ return false; }
+      }
+      // Observe DOM for when the legacy panel is injected and capture it immediately (prevents flicker)
+      // Disabled by default; only enabled after user opens Advanced once to avoid accidental grabs.
+      try{
+        if(localStorage.getItem('td-adv-capture')==='1'){
+          attachLegacyToModal();
+          var obs = new MutationObserver(function(){ attachLegacyToModal(); });
+          obs.observe(document.body, {childList:true, subtree:true});
+        }
+      }catch(_e){}
       function read(){
         try{ return JSON.parse(localStorage.getItem('td-settings-v1')||'{}'); }catch(_e){ return {}; }
       }
@@ -248,7 +431,8 @@
           var THEMES = {
             light: { '--bg':'#f5f7fb','--panel':'#ffffff','--panel2':'#f7f9fc','--edge':'#d6dbe7','--txt':'#0b1020','--muted':'#5c6680','--btn2':'#dde3f0','--accent':'#3b82f6' },
             dim:   { '--bg':'#0f0f10','--panel':'#151515','--panel2':'#101010','--edge':'#2a2a2a','--txt':'#eeeeee','--muted':'#aaaaaa','--btn2':'#3a3a3a','--accent':'#2d6' },
-            neon:  { '--bg':'#0a0b14','--panel':'#0f1022','--panel2':'#0c0d1a','--edge':'#1b1c2b','--txt':'#e7f0ff','--muted':'#8ea2c6','--btn2':'#1b1e34','--accent':'#00e5ff' }
+            neon:  { '--bg':'#0a0b14','--panel':'#0f1022','--panel2':'#0c0d1a','--edge':'#1b1c2b','--txt':'#e7f0ff','--muted':'#8ea2c6','--btn2':'#1b1e34','--accent':'#00e5ff' },
+            matrix:{ '--bg':'#050805','--panel':'#0a0f0a','--panel2':'#070b07','--edge':'#132b13','--txt':'#dfffe0','--muted':'#8dbf96','--btn2':'#163b16','--accent':'#11f27a' }
           };
           var base = THEMES[(v.theme)||'dim']||THEMES.dim; var root=document.documentElement; for(var k in base){ root.style.setProperty(k, base[k]); }
           if(v._accent){ root.style.setProperty('--accent', v._accent); }
@@ -261,7 +445,28 @@
       // Open/close
       btn.addEventListener('click', function(){ if(panel.classList.contains('hidden')){ sync(); panel.classList.remove('hidden'); } else { panel.classList.add('hidden'); } });
       panel.querySelector('#stClose').addEventListener('click', function(){ panel.classList.add('hidden'); });
-      // Inputs
+      // Advanced button: show the captured legacy panel inside modal
+      panel.querySelector('#stAdvanced')?.addEventListener('click', function(){
+        var el = findLegacySettings();
+        if(!el){
+          // Gentle toast
+          try{ var host=document.createElement('div'); host.style.cssText='position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:2000;background:#111a;border:1px solid #333;padding:8px 12px;border-radius:10px;color:#fff;font:12px system-ui;box-shadow:0 8px 20px rgba(0,0,0,.45)'; host.textContent='Inga avancerade inställningar hittades.'; document.body.appendChild(host); setTimeout(function(){ host.remove(); }, 2500); }catch(_e){}
+          return;
+        }
+        try{
+          // Enable capture for this session and ensure it's captured, then reveal modal
+          try{ localStorage.setItem('td-adv-capture','1'); }catch(_e){}
+          attachLegacyToModal();
+          advModal.classList.remove('hidden');
+        }catch(_e){}
+      });
+  // Inputs
+  // Wire tool actions from inside settings panel
+  panel.querySelector('#stToolRanges').addEventListener('click', function(){ try{ document.getElementById('btnRanges')?.click(); }catch(_e){} });
+  panel.querySelector('#stToolDps').addEventListener('click', function(){ try{ document.getElementById('btnDps')?.click(); }catch(_e){} });
+  panel.querySelector('#stToolSellAll').addEventListener('click', function(){ try{ document.getElementById('sellAll')?.click(); }catch(_e){} });
+  panel.querySelector('#stToolAdmin').addEventListener('click', function(){ try{ document.getElementById('btnAdmin')?.click(); }catch(_e){} });
+  panel.querySelector('#stToolRestart').addEventListener('click', function(){ try{ document.getElementById('btnRestart')?.click(); }catch(_e){} });
       panel.querySelector('#stTheme').addEventListener('change', function(){ var val=this.value; write(v=>{ v.theme=val; }); });
       panel.querySelector('#stAccent').addEventListener('input', function(){ var val=this.value; write(v=>{ v._accent=val; }); });
       panel.querySelector('#stScale').addEventListener('input', function(){ var val=parseFloat(this.value)||1; write(v=>{ v._scale=val; }); });
@@ -277,6 +482,15 @@
       try{ var v=read().Visuals||{}; apply(v); }catch(_e){}
       // Close when clicking outside
       window.addEventListener('pointerdown', function(e){ if(panel.classList.contains('hidden')) return; if(e.target===panel || panel.contains(e.target) || e.target===btn) return; panel.classList.add('hidden'); });
+    })();
+  </script>
+  <script>
+    // Profile chip opens the profile panel via a custom event consumed by the game UI
+    (function(){
+      var chip = document.getElementById('profileChip');
+      if(chip){ chip.addEventListener('click', function(){
+        try{ document.dispatchEvent(new CustomEvent('td:openProfile')); }catch(_e){}
+      }); }
     })();
   </script>
   <script>

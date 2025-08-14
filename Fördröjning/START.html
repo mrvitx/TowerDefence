@@ -41,6 +41,11 @@
   .starBtn.active{background:#201b10; border-color:#49412a}
   </style>
   <script src="src/maps.js"></script>
+  <script type="module">
+    import { ensureProfile, isMapUnlocked, saveProfile } from './src/profiles/profile.js';
+    window.__PROFILE = ensureProfile();
+    window.__PROFILE_API = { isMapUnlocked:(id)=>isMapUnlocked(window.__PROFILE,id) };
+  </script>
   <script>
     window.onload = function() {
       function qs(s){ return document.querySelector(s); }
@@ -98,6 +103,8 @@
         // Remove any default maps from stored (by id)
         var customs = stored.filter(function(m){ return !defaults.some(function(d){ return d.id === m.id; }); });
   maps = defaults.concat(customs);
+  // Profile-gated maps: show all but disable/mark if locked by required level
+  var prof = null; try{ prof = window.__PROFILE; }catch(_e){}
   // Filters
   var ft = document.getElementById('filterText'); var ftype=document.getElementById('filterType');
   var q=(ft?.value||'').trim().toLowerCase(); var tp=ftype?.value||'alla';
@@ -108,15 +115,21 @@
           var opt = document.createElement('option');
           opt.value = map.id;
           var suffix = (map.type === 'default' ? '' : ' (egen)');
-          opt.textContent = map.name + suffix + (isFav(map.id) ? ' ★' : '');
+          var reqLvl = Math.max(1, (map.settings && map.settings.requiredLevel) ? map.settings.requiredLevel : 1);
+          var curLvl = prof ? (prof.level||1) : 1;
+          var already = prof && prof.unlockedMaps && !!prof.unlockedMaps[map.id];
+          var locked = (curLvl < reqLvl) && !already;
+          opt.textContent = map.name + suffix + (isFav(map.id) ? ' ★' : '') + (locked ? (' (låst – lvl '+reqLvl+')') : '');
+          if(locked) { opt.disabled = true; opt.setAttribute('title','Kräver profil‑level '+reqLvl); }
           mapPreset.appendChild(opt);
         }
         // Set value to last used or first
-        var KEY = 'td-settings-v1';
-        var data = {};
-        try { data = JSON.parse(localStorage.getItem(KEY)||'{}')||{}; } catch(e){ data={}; }
-        var MapSettings = data.MapSettings || {};
-        var sel = MapSettings.preset || '';
+  var KEY = 'td-settings-v1';
+  var data = {};
+  try { data = JSON.parse(localStorage.getItem(KEY)||'{}')||{}; } catch(e){ data={}; }
+  var MapSettings = data.MapSettings || {};
+  var sel = MapSettings.preset || '';
+  try{ var prof=window.__PROFILE; if(prof && prof.prefs && prof.prefs.lastMap){ sel = prof.prefs.lastMap; } }catch(_e){}
         if (!maps.some(function(m){ return m.id === sel; })) sel = maps[0] ? maps[0].id : '';
         mapPreset.value = sel;
       }
@@ -259,7 +272,8 @@
         var data = {};
         try { data = JSON.parse(localStorage.getItem(KEY)||'{}')||{}; } catch(e){ data={}; }
         data.MapSettings = data.MapSettings || {};
-        data.MapSettings.preset = mapPreset.value;
+  data.MapSettings.preset = mapPreset.value;
+  try{ var prof=window.__PROFILE; if(prof){ prof.prefs = prof.prefs||{}; prof.prefs.lastMap = mapPreset.value; saveProfile(prof); } }catch(_e){}
         localStorage.setItem(KEY, JSON.stringify(data));
         drawPreview();
         updateFavStar();
@@ -563,7 +577,7 @@
       </div>
     </div>
     <div class="grid">
-      <div class="card">
+      <div class="card" id="mainOptions" style="display:none;">
         <label>Karta</label>
         <div class="filters">
           <input id="filterText" placeholder="Sök karta..." />
@@ -595,15 +609,18 @@
           <label style="display:flex;gap:8px;align-items:center"><input id="colorblind" type="checkbox" /> Högkontrast (färgblind)</label>
           <label style="display:flex;gap:8px;align-items:center"><input id="reducedMotion" type="checkbox" /> Minska rörelse</label>
         </div>
-    <div class="small" style="margin-top:8px">Snabbt val: accent</div>
-    <div id="paletteChips" class="row-btns" style="margin-top:4px"></div>
-  <div class="row-btns">
-    <a id="btnStart" class="btn btn-primary" href="./SPEL.HTML">Starta spelet</a>
-    <a id="btnRandom" class="btn-ghost" href="#">Slumpa karta</a>
-  </div>
+        <div class="small" style="margin-top:8px">Snabbt val: accent</div>
+        <div id="paletteChips" class="row-btns" style="margin-top:4px"></div>
+        <div class="row-btns">
+          <a id="btnRandom" class="btn-ghost" href="#">Slumpa karta</a>
+        </div>
         <div class="links"><a href="./ADMIN.html">Admin</a></div>
-        
         <div class="small" style="margin-top:8px">Tips: När spelet startat kan du hålla musen över knapparna för att se deras snabbkommandon.</div>
+      </div>
+      <div class="card" style="text-align:center;">
+        <a id="btnStart" class="btn btn-primary" style="font-size:2rem;padding:2rem 3rem;" href="./SPEL.HTML">Starta spelet</a>
+        <br><br>
+        <button id="btnShowOptions" class="btn-ghost" style="font-size:1.2rem;">Fler val</button>
       </div>
       <div class="card preview">
         <div class="row" style="grid-template-columns:auto auto 1fr; align-items:center; gap:10px; margin-bottom:6px">
@@ -618,6 +635,25 @@
         <div id="previewLegend" class="legend"></div>
       </div>
     </div>
+</body>
+<script>
+// Toggle options visibility
+document.addEventListener('DOMContentLoaded', function() {
+  var btnShow = document.getElementById('btnShowOptions');
+  var options = document.getElementById('mainOptions');
+  if(btnShow && options) {
+    btnShow.addEventListener('click', function() {
+      if(options.style.display === 'none') {
+        options.style.display = '';
+        btnShow.textContent = 'Färre val';
+      } else {
+        options.style.display = 'none';
+        btnShow.textContent = 'Fler val';
+      }
+    });
+  }
+});
+</script>
   </div>
 </body>
 </html>

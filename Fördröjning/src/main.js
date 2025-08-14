@@ -6,11 +6,16 @@ import { wireUI } from './ui.js';
 import { SpatialHash } from './spatial.js';
 import { loadSettingsApply, tryAutoLoadXML } from './persist.js';
 import { Settings, Skills, Visuals, MapSettings } from './constants.js';
+import { ensureProfile, grantXP, addItem, rollBossDrop, saveProfile, unlockMap } from './profiles/profile.js';
+import { updateUnlocksForProfile } from './profiles/gating.js';
 
 // Boot
 window.__TD_BOOTED = true;
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
+// Initialize profile (local for now; DB later)
+const Profile = ensureProfile();
+try{ updateUnlocksForProfile(Profile); saveProfile(Profile); }catch(_e){}
 
 // Force MapSettings.preset from localStorage before anything else
 try {
@@ -78,7 +83,13 @@ function rebuildForSettings(){
 // Build again in case reset cleared path-dependent visuals
 buildPath(canvas);
 initBackground(canvas);
-const ui = wireUI();
+let ui = { drawOverlay: ()=>{}, updateLabels: ()=>{}, showWaveReport: ()=>{} };
+try{
+  ui = wireUI() || ui;
+}catch(err){
+  try{ console.error('UI init failed:', err); }catch(_e){}
+  try{ alert('UI-problem upptäckt – laddar spelet med förenklad UI.'); }catch(_e){}
+}
 const spatial = new SpatialHash(80);
 // Keep a small rolling history of last waves for ROI/stats panel
 const WaveHistory = [];
@@ -111,7 +122,18 @@ function loop(t){
         if(State.bountyBoostActive){ bountyMul *= 1.25; }
         State.money += Math.floor(e.worth * bountyMul);
       }
-      if(e.boss){ Skills.points = (Skills.points||0) + 1; try{ localStorage.setItem('td-settings-v1', JSON.stringify({ ...(JSON.parse(localStorage.getItem('td-settings-v1')||'{}')), Skills: { ...Skills }, ts: Date.now() })); }catch(_e){} }
+      if(e.boss){
+        // Reward: skill point + profile XP + boss drop
+        Skills.points = (Skills.points||0) + 1;
+        try{ localStorage.setItem('td-settings-v1', JSON.stringify({ ...(JSON.parse(localStorage.getItem('td-settings-v1')||'{}')), Skills: { ...Skills }, ts: Date.now() })); }catch(_e){}
+        try{
+          grantXP(Profile, 50);
+          updateUnlocksForProfile(Profile);
+          saveProfile(Profile);
+          const drop = rollBossDrop(State.rng);
+          addItem(Profile, drop);
+        }catch(_e){}
+      }
       // slime split: spawn two smaller if flagged
       if(e.slime){
         for(let k=0;k<2;k++){
@@ -197,10 +219,18 @@ function loop(t){
   // Wave just ended: clear temporary active flags
   State.bountyBoostActive = false;
   // Mark payout done for this waveId
-      State.lastPayoutWave = waveId;
+  State.lastPayoutWave = waveId;
+  try{ grantXP(Profile, 10); updateUnlocksForProfile(Profile); saveProfile(Profile); }catch(_e){}
     }
     // Victory condition when maxWaves reached and not endless
     if(!MapSettings.endless && MapSettings.maxWaves && State.currentWave >= MapSettings.maxWaves){
+      try{
+        // Unlock a new map based on difficulty progression
+        const order = ['ring','maze','figure8','zigzag','spiral','riverNoise'];
+        const prof = Profile;
+        let next = order.find(id => !prof.unlockedMaps[id]);
+        if(next){ unlockMap(prof, next); saveProfile(prof); }
+      }catch(_e){}
       alert('Grattis! Du klarade alla vågor.');
       resetGame();
     }
